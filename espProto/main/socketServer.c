@@ -43,8 +43,8 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
 #include <lwip/netdb.h>
+#include "esp_err.h"
 
-#include "commands.h"
 #include "myConsole.h"
 
 /****************************************************************************************/
