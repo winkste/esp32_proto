@@ -78,8 +78,12 @@
 					</folderInfo>
 					<fileInfo id="cdt.managedbuild.toolchain.gnu.cross.base.462279705.1515407047" name="controlTask.h" rcbsApplicability="disable" resourcePath="main/controlTask.h" toolsToInvoke=""/>
 					<fileInfo id="cdt.managedbuild.toolchain.gnu.cross.base.462279705.1021273590" name="myWifi.h" rcbsApplicability="disable" resourcePath="main/myWifi.h" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.toolchain.gnu.cross.base.462279705.523078735" name="tcp_server.c" rcbsApplicability="disable" resourcePath="main/tcp_server.c" toolsToInvoke="cdt.managedbuild.tool.gnu.cross.c.compiler.4624095.1625606462">
+						<tool id="cdt.managedbuild.tool.gnu.cross.c.compiler.4624095.1625606462" name="Cross GCC Compiler" superClass="cdt.managedbuild.tool.gnu.cross.c.compiler.4624095"/>
+					</fileInfo>
+					<fileInfo id="cdt.managedbuild.toolchain.gnu.cross.base.462279705.2001847942" name="commands.h" rcbsApplicability="disable" resourcePath="main/commands.h" toolsToInvoke=""/>
 					<sourceEntries>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+						<entry excluding="main/commands.h|main/commands.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

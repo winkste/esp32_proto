@@ -1,0 +1,5 @@
+
+espProto/build/app_trace/app_trace.d
+*.o
+*.d
+*.a
