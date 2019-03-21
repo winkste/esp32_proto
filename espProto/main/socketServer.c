@@ -44,6 +44,8 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "lwip/sys.h"
 #include <lwip/netdb.h>
 #include "esp_err.h"
+#include "stdlib.h"
+#include "string.h"
 
 #include "myConsole.h"
 
@@ -57,6 +59,8 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 #define PORT CONFIG_EXAMPLE_PORT
 
+#define RX_BUFFER_SIZE  5000U
+
 /****************************************************************************************/
 /* Local function like makros */
 
@@ -66,6 +70,11 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Local functions prototypes: */
 static void executeTcpSocket(void);
+static esp_err_t ExecuteCommand(char *cmdBuffer_cp);
+static esp_err_t StartConnection(char* addr_cp, int* listenSocket_ip,
+                                 char** rxBuffer_chpp);
+static void StopConnection(int sock_i, int listenSocket_i, char* rxBuffer_chp);
+static void StopSocket(int sock_i);
 
 /****************************************************************************************/
 /* Local variables: */
@@ -135,7 +144,7 @@ void socketServer_Task_vd(void *pvParameters)
     {
         ESP_LOGI(TAG, "socket server waiting for activation...");
         uxBits_st = xEventGroupWaitBits(socketServerEventGroup_sts, bits,
-                                        true, false, portMAX_DELAY); // @suppress("Symbol is not resolved")
+                                        true, false, portMAX_DELAY);
 
         if(0 != (uxBits_st & START_SOCKET_SERVER))
         {
@@ -156,12 +165,157 @@ void socketServer_Task_vd(void *pvParameters)
 *//*-----------------------------------------------------------------------------------*/
 static void executeTcpSocket(void)
 {
-    char rx_buffer[128];
+    int32_t listenSock_s32;
+    int32_t workSock_s32;
+    char *rxBuffer_chp;
     char addr_str[128];
+    int32_t result_s32;
+    struct sockaddr_in6 sourceAddr_st; // Large enough for both IPv4 or IPv6
+    socklen_t addrLen_st = sizeof(sourceAddr_st);
+    int32_t length_s32;
+
+
+    if(ESP_FAIL == StartConnection(addr_str, &listenSock_s32, &rxBuffer_chp))
+    {
+        return;
+    }
+
+    while (1)
+    {
+        ESP_LOGI(TAG, "Start accepting connections");
+        workSock_s32 = accept(listenSock_s32, (struct sockaddr *)&sourceAddr_st, &addrLen_st);
+        if (workSock_s32 < 0) {
+            ESP_LOGE(TAG, "Unable to accept connection: errno %d", errno); // @suppress("Symbol is not resolved")
+            break;
+        }
+        ESP_LOGI(TAG, "Socket accepted");
+
+        while (1)
+        {
+            length_s32 = recv(workSock_s32, rxBuffer_chp,
+                                sizeof(char) * RX_BUFFER_SIZE - 1, 0);
+            //ESP_LOGI(TAG, "----------- new command received ---------------");
+            //ESP_LOGI(TAG, "msg: %s", rxBuffer_chp);
+            if (length_s32 < 0) // Error occured during receiving
+            {
+                ESP_LOGE(TAG, "recv failed: errno %d", errno); // @suppress("Symbol is not resolved")
+                StopSocket(workSock_s32);
+                break;
+            }
+            else if (length_s32 == 0) // Connection closed
+            {
+                ESP_LOGI(TAG, "Connection closed");
+                StopSocket(workSock_s32);
+                break;
+            }
+            // Data received
+            else
+            {
+                // Get the sender's ip address as string
+                if (sourceAddr_st.sin6_family == PF_INET)
+                {
+                    inet_ntoa_r(((struct sockaddr_in *)&sourceAddr_st)->sin_addr.s_addr,
+                                    addr_str, sizeof(addr_str) - 1);
+                } else if (sourceAddr_st.sin6_family == PF_INET6) {
+                    inet6_ntoa_r(sourceAddr_st.sin6_addr, addr_str,
+                                    sizeof(addr_str) - 1);
+                }
+
+                // Null-terminate whatever we received and treat like a string
+                *(rxBuffer_chp + length_s32) = '\0';
+                *(rxBuffer_chp + length_s32 + 1) = '\n';
+                ESP_LOGI(TAG, "Received %d bytes from %s", length_s32, addr_str);
+                //ESP_LOGI(TAG, "%s", rxBuffer_chp);
+
+                if(ESP_OK == ExecuteCommand(rxBuffer_chp))
+                {
+                    sprintf(rxBuffer_chp, "OK\r\n");
+                }
+                else
+                {
+                    sprintf(rxBuffer_chp, "ERROR\r\n");
+                }
+
+                length_s32 = strlen(rxBuffer_chp);
+                result_s32 = send(workSock_s32, rxBuffer_chp, length_s32, 0U);
+                if (result_s32 < 0)
+                {
+                    ESP_LOGE(TAG, "Error occured during sending: err =  %d", result_s32);
+                    StopSocket(workSock_s32);
+                    break;
+                }
+                //ESP_LOGI(TAG, "----------- responded -----------------------");
+            }
+        }
+    }
+
+    StopConnection(workSock_s32, listenSock_s32, rxBuffer_chp);
+    ESP_LOGE(TAG, "stop socket execution...");
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     executes the received command
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+ * @param     cmdBuffer_cp  Buffer to command data which shall be executed
+ * @return    returns ESP_OK if success, in all other cases ESP_FAIL
+*//*-----------------------------------------------------------------------------------*/
+static esp_err_t ExecuteCommand(char *cmdBuffer_cp)
+{
+    esp_err_t cmdExeResult_st = ESP_FAIL;
+    esp_err_t err_st = ESP_FAIL;
+    int32_t cmdResponse_s32 = 0;
+
+    err_st = myConsole_Run_td(cmdBuffer_cp, &cmdResponse_s32);
+
+    if (ESP_ERR_NOT_FOUND == err_st)
+    {
+        ESP_LOGW(TAG, "Unrecognized command");
+    }
+    else if (ESP_ERR_INVALID_ARG == err_st)
+    {
+        ESP_LOGW(TAG, "command was empty");
+    }
+    else if ((ESP_OK == err_st) && (ESP_OK != cmdResponse_s32))
+    {
+        ESP_LOGE(TAG, "Command returned non-zero error code: 0x%x (%s)",
+                cmdResponse_s32, esp_err_to_name(err_st));
+    }
+    else if (ESP_OK != err_st)
+    {
+        ESP_LOGE(TAG, "Internal error: %s", esp_err_to_name(err_st));
+    }
+    else if((ESP_OK != err_st) || (ESP_OK != cmdResponse_s32))
+    {
+       ESP_LOGE(TAG,
+            "Unexpected error combination occured during command execution");
+       ESP_LOGE(TAG, "error combination: err = %d, resp = %d",
+            err_st, cmdResponse_s32);
+    }
+    else
+    {
+        ESP_LOGI(TAG, "command successful executed...");
+        cmdExeResult_st = ESP_OK;
+    }
+
+    return(cmdExeResult_st);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     starts a socket connection
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+ * @param     cmdBuffer_cp    Buffer to command data which shall be executed
+ * @param     listenSocket_ip pointer to the generated listener socket
+ * @param     rxBuffer_chpp   pointer to pointer of the allocated receive buffer
+ * @return    returns ESP_OK if success, in all other cases ESP_FAIL
+*//*-----------------------------------------------------------------------------------*/
+static esp_err_t StartConnection(char* addr_cp, int* listenSocket_ip, char** rxBuffer_chpp)
+{
+    int err;
     int addr_family;
     int ip_protocol;
     int y = 1;
-    //int8_t cmdResp_s8 = 0U;
 #ifdef CONFIG_EXAMPLE_IPV4
     struct sockaddr_in destAddr;
     destAddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -169,7 +323,7 @@ static void executeTcpSocket(void)
     destAddr.sin_port = htons(PORT);
     addr_family = AF_INET;
     ip_protocol = IPPROTO_IP;
-    inet_ntoa_r(destAddr.sin_addr, addr_str, sizeof(addr_str) - 1);
+    inet_ntoa_r(destAddr.sin_addr, addr_cp, sizeof(addr_cp) - 1);
 #else // IPV6
     struct sockaddr_in6 destAddr;
     bzero(&destAddr.sin6_addr.un, sizeof(destAddr.sin6_addr.un));
@@ -181,135 +335,81 @@ static void executeTcpSocket(void)
 #endif
 
     ESP_LOGI(TAG, "Starting socket server...");
-    int listen_sock = socket(addr_family, SOCK_STREAM, ip_protocol);
-    if (listen_sock < 0) {
+    *listenSocket_ip = socket(addr_family, SOCK_STREAM, ip_protocol);
+    if (*listenSocket_ip < 0)
+    {
         ESP_LOGE(TAG, "Unable to create socket: errno %d", errno); // @suppress("Symbol is not resolved")
-        return;
+        return(ESP_FAIL);
     }
     ESP_LOGI(TAG, "Socket created");
 
-    int err = setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &y, sizeof(int));
+    err = setsockopt(*listenSocket_ip, SOL_SOCKET, SO_REUSEADDR, &y, sizeof(int));
     if (err != 0) {
         ESP_LOGE(TAG, "Socket unable set option: errno %d", errno); // @suppress("Symbol is not resolved")
-        return;
+        return(ESP_FAIL);
     }
 
-    err = bind(listen_sock, (struct sockaddr *)&destAddr, sizeof(destAddr));
+    err = bind(*listenSocket_ip, (struct sockaddr *)&destAddr, sizeof(destAddr));
     if (err != 0) {
         ESP_LOGE(TAG, "Socket unable to bind: errno %d", errno); // @suppress("Symbol is not resolved")
-        return;
+        return(ESP_FAIL);
     }
     ESP_LOGI(TAG, "Socket binded");
 
-    err = listen(listen_sock, 1);
+    err = listen(*listenSocket_ip, 1);
     if (err != 0) {
         ESP_LOGE(TAG, "Error occured during listen: errno %d", errno); // @suppress("Symbol is not resolved")
-        return;
+        return(ESP_FAIL);
     }
     ESP_LOGI(TAG, "Socket listening");
 
-    while (1)
+    ESP_LOGI(TAG, "Allocate memory for rx buffer...");
+    *rxBuffer_chpp = malloc(sizeof(char) * RX_BUFFER_SIZE);
+    if(NULL == *rxBuffer_chpp)
     {
-        ESP_LOGI(TAG, "Start accepting connections");
-        struct sockaddr_in6 sourceAddr; // Large enough for both IPv4 or IPv6
-        uint addrLen = sizeof(sourceAddr);
-        int sock = accept(listen_sock, (struct sockaddr *)&sourceAddr, &addrLen);
-        if (sock < 0) {
-            ESP_LOGE(TAG, "Unable to accept connection: errno %d", errno); // @suppress("Symbol is not resolved")
-            break;
-        }
-        ESP_LOGI(TAG, "Socket accepted");
-
-        while (1) {
-            int len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-            // Error occured during receiving
-            if (len < 0)
-            {
-                ESP_LOGE(TAG, "recv failed: errno %d", errno); // @suppress("Symbol is not resolved")
-                break;
-            }
-            // Connection closed
-            else if (len == 0)
-            {
-                ESP_LOGI(TAG, "Connection closed");
-                break;
-            }
-            // Data received
-            else
-            {
-                // Get the sender's ip address as string
-                if (sourceAddr.sin6_family == PF_INET) {
-                    inet_ntoa_r(((struct sockaddr_in *)&sourceAddr)->sin_addr.s_addr, addr_str, sizeof(addr_str) - 1);
-                } else if (sourceAddr.sin6_family == PF_INET6) {
-                    inet6_ntoa_r(sourceAddr.sin6_addr, addr_str, sizeof(addr_str) - 1);
-                }
-
-                //memcpy(stationWifiSettings_sts.sta.ssid, rx_buffer, sizeof(stationWifiSettings_sts.sta.ssid));
-                rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-                ESP_LOGI(TAG, "Received %d bytes from %s:", len, addr_str);
-                ESP_LOGI(TAG, "%s", rx_buffer);
-
-                int ret;
-                err = myConsole_Run_td(rx_buffer, &ret);
-                if (err == ESP_ERR_NOT_FOUND) {
-                    ESP_LOGW(TAG, "Unrecognized command\n");
-                } else if (err == ESP_ERR_INVALID_ARG) {
-                    // command was empty
-                } else if (err == ESP_OK && ret != ESP_OK) {
-                    ESP_LOGE(TAG, "Command returned non-zero error code: 0x%x (%s)\n", ret, esp_err_to_name(err));
-                } else if (err != ESP_OK) {
-                    ESP_LOGE(TAG, "Internal error: %s\n", esp_err_to_name(err));
-                }
-
-                //commands_Execute(rx_buffer, len);
-
-                /*cmdResp_s8 = CheckForCommand_s8(rx_buffer, len);
-                if(1 == cmdResp_s8)
-                {
-                    ESP_LOGE(TAG, "Shutting down socket...");
-                    shutdown(sock, 0);
-                    close(sock);
-                    shutdown(listen_sock, 0);
-                    close(listen_sock);
-                    ESP_LOGE(TAG, "Disconnect wifi...");
-                    ESP_LOGE(TAG, "Restarting wifi setup in station mode...");
-                    xEventGroupClearBits(socketServerEventGroup_sts, START_SOCKET_SERVER);
-                    InitializeWifiSta();
-                    return;
-                }
-                else if(2 == cmdResp_s8)
-                {
-                    ESP_LOGE(TAG, "Shutting down socket...");
-                    shutdown(sock, 0);
-                    close(sock);
-                    shutdown(listen_sock, 0);
-                    close(listen_sock);
-                    ESP_LOGE(TAG, "Disconnect wifi...");
-                    ESP_LOGE(TAG, "Restarting wifi setup in station mode...");
-                    xEventGroupClearBits(socketServerEventGroup_sts, START_SOCKET_SERVER);
-                    InitializeWifiSoftAp();
-                    return;
-                }*/
-
-                int err = send(sock, rx_buffer, len, 0);
-                if (err < 0)
-                {
-                    ESP_LOGE(TAG, "Error occured during sending: errno %d", errno); // @suppress("Symbol is not resolved")
-                    break;
-                }
-            }
-        }
-
-        if (sock != -1)
-        {
-            ESP_LOGE(TAG, "Shutting down socket and restarting...");
-            shutdown(sock, 0);
-            close(sock);
-            shutdown(listen_sock, 0);
-            close(listen_sock);
-            xEventGroupClearBits( socketServerEventGroup_sts, START_SOCKET_SERVER);
-            return;
-        }
+        ESP_LOGI(TAG, "Unable to allocate memory for rx buffer...");
+        return(ESP_FAIL);
     }
-    ESP_LOGE(TAG, "stop socket execution...");
+    memset(*rxBuffer_chpp, 0U, sizeof(char) * RX_BUFFER_SIZE);
+
+    return(ESP_OK);
 }
+
+/**---------------------------------------------------------------------------------------
+ * @brief     stops the socket connection
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+ * @param     cmdBuffer_cp    Buffer to command data which shall be executed
+ * @param     listenSocket_ip pointer to the generated listener socket
+ * @param     rxBuffer_chp    pointer to pointer of the allocated receive buffer
+*//*-----------------------------------------------------------------------------------*/
+static void StopConnection(int sock_i, int listenSocket_i, char* rxBuffer_chp)
+{
+    ESP_LOGI(TAG, "stop socket connection...");
+
+    StopSocket(sock_i);
+    StopSocket(listenSocket_i);
+
+    free(rxBuffer_chp);
+
+    xEventGroupClearBits(socketServerEventGroup_sts, START_SOCKET_SERVER);
+    return;
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     stops the socket connection
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+ * @param     sock_i        Socket to shutdown
+*//*-----------------------------------------------------------------------------------*/
+static void StopSocket(int sock_i)
+{
+    if (sock_i != -1)
+    {
+        ESP_LOGE(TAG, "Shutting down socket: %d", sock_i);
+        shutdown(sock_i, 0);
+        close(sock_i);
+    }
+}
+
+

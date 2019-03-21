@@ -120,7 +120,8 @@ static wifi_config_t apWifiSettings_sts =
 };
 
 /** Arguments used by 'parameter' function */
-static struct {
+static struct
+{
     struct arg_int *timeout_stp;
     struct arg_str *ssid_stp;
     struct arg_str *password_stp;
@@ -222,7 +223,7 @@ void myWifi_InitializeWifiSta_vd(void)
 *//*-----------------------------------------------------------------------------------*/
 void myWifi_RegisterWifiCommands(void)
 {
-    cmdArgsStation_sts.timeout_stp = arg_int0(NULL, "timeout", "<t>", "Connection timeout, ms");
+    cmdArgsStation_sts.timeout_stp = arg_int0("t", "timeout", "<t>", "Connection timeout, ms");
     cmdArgsStation_sts.timeout_stp->ival[0] = 5000; // set default value
     cmdArgsStation_sts.ssid_stp = arg_str1(NULL, NULL, "<ssid>", "SSID of AP");
     cmdArgsStation_sts.password_stp = arg_str0(NULL, NULL, "<pass>", "PSK of AP");

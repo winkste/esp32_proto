@@ -265,34 +265,29 @@ esp_err_t paramif_Read_td(paramif_objHdl_t handle_xp, uint8_t *dest_u8p)
     if((NULL != handle_xp) && (STATE_INITIALIZED == moduleState_ens))
     {
         length_u16 = handle_xp->param_st.length_u16;
-        ESP_LOGI(TAG, "test1 %d", err_st);
         err_st = nvs_open(STORAGE_NAMESPACE, NVS_READONLY, &fileHandle_st);
 
         if(ESP_OK == err_st)
         {
-            ESP_LOGI(TAG, "test2 %d", err_st);
             err_st = nvs_get_blob(fileHandle_st,
                                     handle_xp->param_st.nvsIdent_cp, dest_u8p,
                                     (size_t *)&length_u16);
-            ESP_ERROR_CHECK(err_st);
+
             if(ESP_OK == err_st)
             {
-                ESP_LOGI(TAG, "test3 %d", err_st);
                 nvs_close(fileHandle_st);
             }
         }
 
-        ESP_LOGI(TAG, "test5 %d", err_st);
         /* if everything works fine, the error return status should stay at
          * ESP_OK if this is not the case, we will set the data to defaults if
          * available */
         if((ESP_OK != err_st) && handle_xp->param_st.defaults_u8p != NULL)
         {
-            ESP_LOGI(TAG, "test4 %d", err_st);
             err_st = ESP_OK;
             memcpy(dest_u8p, handle_xp->param_st.defaults_u8p,
                     handle_xp->param_st.length_u16);
-            //err_st = paramif_Write_td(handle_xp, handle_xp->param_st.defaults_u8p);
+            err_st = paramif_Write_td(handle_xp, handle_xp->param_st.defaults_u8p);
             //ESP_LOGI(TAG, "test6 %d", err_st);
         }
     }

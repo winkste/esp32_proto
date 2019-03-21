@@ -48,66 +48,66 @@ extern "C"
 
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
- typedef struct paramif_param_tag
- {
+typedef struct paramif_param_tag
+{
 
- }paramif_param_t;
+}paramif_param_t;
 
- typedef struct paramif_allocParam_tag
- {
-     const char *nvsIdent_cp;
-     uint16_t length_u16;
-     uint8_t *defaults_u8p;
- }paramif_allocParam_t;
+typedef struct paramif_allocParam_tag
+{
+    const char *nvsIdent_cp;
+    uint16_t length_u16;
+    uint8_t *defaults_u8p;
+}paramif_allocParam_t;
 
- typedef struct paramif_obj_tag *paramif_objHdl_t;
+typedef struct paramif_obj_tag *paramif_objHdl_t;
 
 /****************************************************************************************/
 /* Global function definitions: */
 
- /**---------------------------------------------------------------------------------------
-  * @brief     Set the generic init parameter stucture to defaults
-  * @author    S. Wink
-  * @date      15. Feb. 2019
-  * @param     param_stp           pointer to the module parameters
-  * @return    In case of a null pointer ESP_ERR, else ESP_OK
- *//*-----------------------------------------------------------------------------------*/
- extern esp_err_t paramif_InitializeParameter_td(paramif_param_t *param_stp);
+/**---------------------------------------------------------------------------------------
+ * @brief     Set the generic init parameter stucture to defaults
+ * @author    S. Wink
+ * @date      15. Feb. 2019
+ * @param     param_stp           pointer to the module parameters
+ * @return    In case of a null pointer ESP_ERR, else ESP_OK
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t paramif_InitializeParameter_td(paramif_param_t *param_stp);
 
- /**---------------------------------------------------------------------------------------
-  * @brief     Module initialization function
-  * @author    S. Wink
-  * @date      15. Feb. 2019
-  * @param     param_stp           pointer to the module parameters
-  * @return    Memory error, null pointer exception (ESP_ERR), else ESP_OK
- *//*-----------------------------------------------------------------------------------*/
- extern esp_err_t paramif_Initialize_td(paramif_param_t *param_stp);
+/**---------------------------------------------------------------------------------------
+ * @brief     Module initialization function
+ * @author    S. Wink
+ * @date      15. Feb. 2019
+ * @param     param_stp           pointer to the module parameters
+ * @return    Memory error, null pointer exception (ESP_ERR), else ESP_OK
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t paramif_Initialize_td(paramif_param_t *param_stp);
 
- /**---------------------------------------------------------------------------------------
-  * @brief     Activates the parameter handling module, now get/set/erase
-  *                 of individual parameters is allowed
-  * @author    S. Wink
-  * @date      15. Feb. 2019
-  * @return    ESP_ERR in case of memory issues or wrong module state, else ESP_OK
- *//*-----------------------------------------------------------------------------------*/
+/**---------------------------------------------------------------------------------------
+ * @brief     Activates the parameter handling module, now get/set/erase
+ *                 of individual parameters is allowed
+ * @author    S. Wink
+ * @date      15. Feb. 2019
+ * @return    ESP_ERR in case of memory issues or wrong module state, else ESP_OK
+*//*-----------------------------------------------------------------------------------*/
  extern esp_err_t paramif_Activate_td(void);
 
- /**---------------------------------------------------------------------------------------
-  * @brief     Deactivates the parameter handling module, now overall memory activities
-  *                 are enabled (erase all)
-  * @author    S. Wink
-  * @date      15. Feb. 2019
-  * @return    ESP_ERR in case of memory issues or wrong module state, else ESP_OK
- *//*-----------------------------------------------------------------------------------*/
- extern esp_err_t paramif_DeActivate_td(void);
+/**---------------------------------------------------------------------------------------
+ * @brief     Deactivates the parameter handling module, now overall memory activities
+ *                 are enabled (erase all)
+ * @author    S. Wink
+ * @date      15. Feb. 2019
+ * @return    ESP_ERR in case of memory issues or wrong module state, else ESP_OK
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t paramif_DeActivate_td(void);
 
- /**---------------------------------------------------------------------------------------
-  * @brief     Erases all parameters
-  * @author    S. Wink
-  * @date      15. Feb. 2019
-  * @return    ESP_ERR in case of memory issues or wrong module state, else ESP_OK
- *//*-----------------------------------------------------------------------------------*/
- extern esp_err_t paramif_EraseAllParameter_td(void);
+/**---------------------------------------------------------------------------------------
+ * @brief     Erases all parameters
+ * @author    S. Wink
+ * @date      15. Feb. 2019
+ * @return    ESP_ERR in case of memory issues or wrong module state, else ESP_OK
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t paramif_EraseAllParameter_td(void);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Set the parameter structure for one object to defaults

@@ -43,6 +43,8 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "socketServer.h"
 #include "myConsole.h"
 #include "paramif.h"
+#include "myVersion.h"
+#include "otaUpdate.h"
 
 #include "sdkconfig.h"
 
@@ -67,7 +69,8 @@ typedef struct ctrlData_tag
 /****************************************************************************************/
 /* Local functions prototypes: */
 static void RegisterCommands(void);
-static int cmdInfoHandler_i(int argc, char** argv);
+static int CommandInfoHandler_i(int argc, char** argv);
+static int CommandRebootHandler_i(int argc, char** argv);
 
 /****************************************************************************************/
 /* Local variables: */
@@ -114,10 +117,11 @@ esp_err_t controlTask_Initialize_st(void)
     myConsole_config_t consoleConfig_st =
     {
             .max_cmdline_args = 8,
-            .max_cmdline_length = 128,
+            .max_cmdline_length = 2048,
     };
     paramif_param_t paramHdl_st;
     paramif_allocParam_t controlAllocParam_st;
+    otaUpdate_param_t otaParam_st;
 
     /* parameter initialization */
     ESP_ERROR_CHECK(paramif_InitializeParameter_td(&paramHdl_st));
@@ -132,6 +136,9 @@ esp_err_t controlTask_Initialize_st(void)
     ESP_ERROR_CHECK(myConsole_Init_td(&consoleConfig_st));
     myConsole_RegisterHelpCommand();
     RegisterCommands();
+
+    /* initialize and register Version information */
+    ESP_ERROR_CHECK(myVersion_Initialize_st());
 
     /* setup event group for event receiving from other tasks and processes */
     controlEventGroup_sts = xEventGroupCreate();
@@ -150,6 +157,9 @@ esp_err_t controlTask_Initialize_st(void)
     ESP_ERROR_CHECK(paramif_Write_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
     ESP_LOGI(TAG, "New startup detected, system restarted %d times.",
                 controlData_sts.startupCounter_u32);
+
+    otaUpdate_InitializeParameter_td(&otaParam_st);
+    otaUpdate_Initialize_td(&otaParam_st);
 
     /* start the control task */
     xTaskCreate(controlTask_Task_vd, "controlTask", 4096, NULL, 5, NULL);
@@ -252,13 +262,22 @@ void controlTask_Task_vd(void *pvParameters)
 *//*-----------------------------------------------------------------------------------*/
 static void RegisterCommands(void)
 {
-        const myConsole_cmd_t accessPointCmd = {
+    const myConsole_cmd_t infoCmd_stc =
+    {
         .command = "info",
         .help = "Get control task information log",
-        .func = &cmdInfoHandler_i,
+        .func = &CommandInfoHandler_i,
     };
 
-    ESP_ERROR_CHECK(myConsole_CmdRegister_td(&accessPointCmd));
+    const myConsole_cmd_t rebootCommand_stc =
+    {
+        .command = "boot",
+        .help = "Reboot the controller",
+        .func = &CommandRebootHandler_i,
+    };
+
+    ESP_ERROR_CHECK(myConsole_CmdRegister_td(&infoCmd_stc));
+    ESP_ERROR_CHECK(myConsole_CmdRegister_td(&rebootCommand_stc));
 }
 
 /**---------------------------------------------------------------------------------------
@@ -269,10 +288,26 @@ static void RegisterCommands(void)
  * @param     argv  pointer to argument list
  * @return    not equal to zero if error detected
 *//*-----------------------------------------------------------------------------------*/
-static int cmdInfoHandler_i(int argc, char** argv)
+static int CommandInfoHandler_i(int argc, char** argv)
 {
     ESP_LOGI(TAG, "information request command received");
     ESP_ERROR_CHECK(paramif_Read_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
     ESP_LOGI(TAG, "startups detected: %d", controlData_sts.startupCounter_u32);
-    return 0;
+    return(0);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Handler for console command to reboot the system
+ * @author    S. Wink
+ * @date      08. Mar. 2019
+ * @param     argc  count of argument list
+ * @param     argv  pointer to argument list
+ * @return    not equal to zero if error detected
+*//*-----------------------------------------------------------------------------------*/
+static int CommandRebootHandler_i(int argc, char** argv)
+{
+    ESP_LOGI(TAG, "networkTask: Reboot in 2 seconds...");
+    vTaskDelay(2000 / portTICK_RATE_MS);
+    esp_restart();
+    return(0);
 }

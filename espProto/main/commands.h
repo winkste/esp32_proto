@@ -1,14 +1,14 @@
 /*****************************************************************************************
-* FILENAME :        mymain.c
+* FILENAME :        commands.h
 *
 * DESCRIPTION :
-*       This module
+*       Header file for command handling and execution
 *
-* AUTHOR :    Stephan Wink        CREATED ON :    24.01.2019
+* Date: 26. January 2019
 *
-* PUBLIC FUNCTIONS :
+* NOTES :
 *
-* Copyright (c) [2017] [Stephan Wink]
+* Copyright (c) [2019] [Stephan Wink]
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -27,46 +27,39 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
-*
 *****************************************************************************************/
+#ifndef MAIN_COMMANDS_H_
+#define MAIN_COMMANDS_H_
 
 /****************************************************************************************/
-/* Include Interfaces */
-#include "esp_log.h"
-
-#include "controlTask.h"
-
-/****************************************************************************************/
-/* Local constant defines */
+/* Imported header files: */
+#include "stdint.h"
+#include "esp_err.h"
 
 /****************************************************************************************/
-/* Local function like makros */
+/* Global constant defines: */
 
 /****************************************************************************************/
-/* Local type definitions (enum, struct, union) */
+/* Global function like macro defines (to be avoided): */
 
 /****************************************************************************************/
-/* Local functions prototypes: */
+/* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
-/****************************************************************************************/
-/* Local variables: */
-
-static const char *TAG = "mymain";
-
-/****************************************************************************************/
-/* Global functions (unlimited visibility) */
-
-/**---------------------------------------------------------------------------------------
- * @brief     Main entry point for application
- * @author    S. Wink
- * @date      24. Jan. 2019
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-void app_main()
+typedef struct cmdElement_tag
 {
-    ESP_LOGI(TAG, "starting...");
-    controlTask_Initialize_st();
-}
-/****************************************************************************************/
-/* Local functions: */
+    const char *cmd_ccp;
+    uint8_t cmdLength_u8;
+    void (*commandCallBack_ptrs)(void *userData_vp);
+}cmdElement_t;
 
+/****************************************************************************************/
+/* Global function definitions: */
+
+extern void commands_Initialize(void);
+extern esp_err_t commands_AddElement(cmdElement_t *cmdElem_pst);
+extern void commands_Execute(char *buffer_cp, uint16_t length_u16);
+
+/****************************************************************************************/
+/* Global data definitions: */
+
+#endif /* MAIN_COMMANDS_H_ */
