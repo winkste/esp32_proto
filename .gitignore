@@ -3,3 +3,13 @@ espProto/build/
 *.o
 *.d
 *.a
+espProto/sdkconfig
+espProto/sdkconfig 2
+espProto/sdkconfig 3
+espProto/sdkconfig 4
+espProto/sdkconfig 5
+espProto/sdkconfig.old
+tools/esp32-ota-demo.bin
+tools/espProto.bin
+tools/espProto_xxx.bin
+tools/espProto.bin
