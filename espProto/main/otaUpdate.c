@@ -23,7 +23,7 @@
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
@@ -66,7 +66,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /* Local functions prototypes: */
 static const esp_partition_t * FindNextBootPartition_stc(void);
 static void otaUpdate_RegisterCommands(void);
-static int otaCommandHandler_i(int argc, char** argv);
+static int OtaCommandHandler_i(int argc, char** argv);
 
 /****************************************************************************************/
 /* Local variables: */
@@ -96,12 +96,13 @@ static struct
 static const int32_t CMD_EXE_SUCCESS  = 0;
 static const int32_t CMD_EXE_FAIL     = 1;
 static const uint8_t CHARS_PER_BYTE   = 2U;
+
 /****************************************************************************************/
 /* Global functions (unlimited visibility) */
 
 /**---------------------------------------------------------------------------------------
  * @brief     Set the generic init parameter stucture to defaults
-*//*-----------------------------------------------------------------------------------*/
+*//*------------------------------------------------------------------------------------*/
 esp_err_t otaUpdate_InitializeParameter_td(otaUpdate_param_t *param_stp)
 {
     moduleState_ens = STATE_NOT_INITIALIZED;
@@ -110,7 +111,7 @@ esp_err_t otaUpdate_InitializeParameter_td(otaUpdate_param_t *param_stp)
 
 /**---------------------------------------------------------------------------------------
  * @brief     Module initialization function
-*//*-----------------------------------------------------------------------------------*/
+*//*------------------------------------------------------------------------------------*/
 esp_err_t otaUpdate_Initialize_td(otaUpdate_param_t *param_stp)
 {
     spi_flash_init();
@@ -122,7 +123,7 @@ esp_err_t otaUpdate_Initialize_td(otaUpdate_param_t *param_stp)
 
 /**---------------------------------------------------------------------------------------
  * @brief     Call to check if an OTA update is ongoing.
-*//*-----------------------------------------------------------------------------------*/
+*//*------------------------------------------------------------------------------------*/
 uint8_t otaUpdate_InProgress_u8(void)
 {
     return(STATE_UPDATE_IN_PROGRESS == moduleState_ens);
@@ -130,7 +131,7 @@ uint8_t otaUpdate_InProgress_u8(void)
 
 /**---------------------------------------------------------------------------------------
  * @brief     Start an OTA update.
-*//*-----------------------------------------------------------------------------------*/
+*//*------------------------------------------------------------------------------------*/
 extern esp_err_t otaUpdate_Begin_st(void)
 {
     esp_err_t retVal_st = ESP_FAIL;
@@ -148,10 +149,6 @@ extern esp_err_t otaUpdate_Begin_st(void)
             ESP_LOGI(TAG, "Set start address for flash writes to 0x%08x",
                         currentFlashAddr_u32s);
 
-            // TODO
-            // This operation would trigger the watchdog of the currently running task if
-            // we fed it with the full partition size.To avoid the issue, we erase only a
-            // small part here and afterwards erase every page before writing to it.
             retVal_st = esp_ota_begin(otaPartition_stsc, 4096, &otaHandle_sts);
             ESP_LOGI(TAG, "Result from esp_ota_begin: %d %d", retVal_st, otaHandle_sts);
         }
@@ -167,13 +164,12 @@ extern esp_err_t otaUpdate_Begin_st(void)
 
 /**---------------------------------------------------------------------------------------
  * @brief     Call this function to write up to 4 kBytes of hex data.
-*//*-----------------------------------------------------------------------------------*/
+*//*------------------------------------------------------------------------------------*/
 extern esp_err_t otaUpdate_WriteData_st(uint8_t *data_u8p, uint16_t length_u16)
 {
-    //uint8_t buf_u8a[OTA_MESSAGE_WRITE_LENGTH];
     uint16_t flashSectorToErase_u16 = 0U;
-
     esp_err_t err_st = ESP_FAIL;
+
     if(STATE_UPDATE_IN_PROGRESS == moduleState_ens)
     {
         err_st = ESP_OK;
@@ -200,6 +196,7 @@ extern esp_err_t otaUpdate_WriteData_st(uint8_t *data_u8p, uint16_t length_u16)
 
         currentFlashAddr_u32s += length_u16;
     }
+
     return(ESP_OK);
 }
 
@@ -208,16 +205,16 @@ extern esp_err_t otaUpdate_WriteData_st(uint8_t *data_u8p, uint16_t length_u16)
  * @author    S. Wink
  * @date      10. Mar. 2019
  * @return    ES_OK if update was started, else ESP_FAIL
-*//*-----------------------------------------------------------------------------------*/
+*//*------------------------------------------------------------------------------------*/
 extern esp_err_t otaUpdate_Finish_st(void)
 {
     esp_err_t retVal_st = ESP_OK;
+
     if(STATE_UPDATE_IN_PROGRESS == moduleState_ens)
     {
         ESP_LOGI(TAG, "Finish in progress");
         if (!otaPartition_stsc)
         {
-            //return OTA_ERR_PARTITION_NOT_FOUND;
             retVal_st = ESP_FAIL;
             ESP_LOGI(TAG, "Finish partition error");
         }
@@ -245,7 +242,12 @@ extern esp_err_t otaUpdate_Finish_st(void)
                         otaPartition_stsc->label, retVal_st);
             }
         }
+
+        // independent from the result, set the status back to initialized to
+        // enable the next update, if needed
+        moduleState_ens = STATE_INITIALIZED;
     }
+
     return(retVal_st);
 }
 /****************************************************************************************/
@@ -262,45 +264,39 @@ extern esp_err_t otaUpdate_Finish_st(void)
 *//*-----------------------------------------------------------------------------------*/
 static const esp_partition_t * FindNextBootPartition_stc(void)
 {
-    // Factory -> OTA_0
-    // OTA_0   -> OTA_1
-    // OTA_1   -> OTA_0
+    const esp_partition_t *current_stp = esp_ota_get_boot_partition();
+    const esp_partition_t *next_stp = NULL;
 
-    const esp_partition_t *currentBootPartition = esp_ota_get_boot_partition();
-    const esp_partition_t *nextBootPartition = NULL;
-
-    if (!strcmp("factory", currentBootPartition->label))
+    if (!strcmp("factory", current_stp->label))
     {
-        nextBootPartition = esp_partition_find_first(ESP_PARTITION_TYPE_APP,
+        next_stp = esp_partition_find_first(ESP_PARTITION_TYPE_APP,
                                                         ESP_PARTITION_SUBTYPE_ANY,
                                                         "ota_0");
-    }
-
-    if (!strcmp("ota_0", currentBootPartition->label))
+    }else if (!strcmp("ota_0", current_stp->label))
     {
-        nextBootPartition = esp_partition_find_first(ESP_PARTITION_TYPE_APP,
+        next_stp = esp_partition_find_first(ESP_PARTITION_TYPE_APP,
                                                         ESP_PARTITION_SUBTYPE_ANY,
                                                         "ota_1");
-    }
-
-    if (!strcmp("ota_1", currentBootPartition->label))
+    }else if (!strcmp("ota_1", current_stp->label))
     {
-        nextBootPartition = esp_partition_find_first(ESP_PARTITION_TYPE_APP,
+        next_stp = esp_partition_find_first(ESP_PARTITION_TYPE_APP,
                                                         ESP_PARTITION_SUBTYPE_ANY,
                                                         "ota_0");
     }
-
-    if (nextBootPartition)
+    else
     {
-        ESP_LOGI(TAG, "Found next boot partition: %02x %02x 0x%08x %s",
-                 nextBootPartition->type, nextBootPartition->subtype,
-                 nextBootPartition->address, nextBootPartition->label);
-    } else {
         ESP_LOGE(TAG, "Failed to find next boot partition from current boot partition: %s",
-                 currentBootPartition ? currentBootPartition->label : "NULL");
+                        current_stp ? current_stp->label : "NULL");
     }
 
-    return(nextBootPartition);
+    if (next_stp)
+    {
+        ESP_LOGI(TAG, "Found next boot partition: %02x %02x 0x%08x %s",
+                next_stp->type, next_stp->subtype,
+                next_stp->address, next_stp->label);
+    }
+
+    return(next_stp);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -318,11 +314,12 @@ static void otaUpdate_RegisterCommands(void)
     otaCmdArgs_sts.data_stp = arg_str0("d", "data", "<data>", "data vector");
     otaCmdArgs_sts.end_stp = arg_end(3);
 
-    const myConsole_cmd_t paramCmd = {
+    const myConsole_cmd_t paramCmd =
+    {
         .command = "ota",
         .help = "OTA command control",
         .hint = NULL,
-        .func = &otaCommandHandler_i,
+        .func = &OtaCommandHandler_i,
         .argtable = &otaCmdArgs_sts
     };
 
@@ -337,11 +334,11 @@ static void otaUpdate_RegisterCommands(void)
  * @param     argv  pointer to argument list
  * @return    not equal to zero if error detected
 *//*-----------------------------------------------------------------------------------*/
-static int otaCommandHandler_i(int argc, char** argv)
+static int OtaCommandHandler_i(int argc, char** argv)
 {
-    int32_t nerrors_s32 = arg_parse(argc, argv, (void**) &otaCmdArgs_sts);
     int32_t cmdExeResult_s32 = CMD_EXE_FAIL;
     esp_err_t err_st = ESP_FAIL;
+    int32_t nerrors_s32 = arg_parse(argc, argv, (void**) &otaCmdArgs_sts);
 
     if (nerrors_s32 != 0)
     {

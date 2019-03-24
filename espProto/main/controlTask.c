@@ -45,8 +45,9 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "paramif.h"
 #include "myVersion.h"
 #include "otaUpdate.h"
-
 #include "sdkconfig.h"
+
+#include "../components/udpLog/include/udpLog.h"
 
 /****************************************************************************************/
 /* Local constant defines */
@@ -54,6 +55,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
     #define BIT0    0x00000000
     #define BIT1    0x00000001
     #define BIT2    0x00000002
+    #define BIT3    0x00000004
 #endif
 
 /****************************************************************************************/
@@ -78,6 +80,7 @@ static int CommandRebootHandler_i(int argc, char** argv);
 const int WIFI_STARTED      = BIT0;
 const int WIFI_DISCONNECTED = BIT1;
 const int SOCKET_ERROR      = BIT2;
+const int SYSTEM_REBOOT     = BIT3;
 
 static EventGroupHandle_t controlEventGroup_sts;
 static const char *TAG = "controlTask";
@@ -167,32 +170,6 @@ esp_err_t controlTask_Initialize_st(void)
 }
 
 /**---------------------------------------------------------------------------------------
- * @brief     Callback function to start station wifi mode
- * @author    S. Wink
- * @date      24. Jan. 2019
- * @param     data_vp
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-/*void controlTask_InitializeWifiStaCb(void *data_vp)
-{
-    myWifi_InitializeWifiSoftAp_vd();
-
-}*/
-
-/**---------------------------------------------------------------------------------------
- * @brief     Callback function to start an own access point as wifi mode
- * @author    S. Wink
- * @date      24. Jan. 2019
- * @param     data_vp
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-/*void controlTask_InitializeWifiApCb(void *data_vp)
-{
-    ESP_LOGI(TAG, "callback InitializeWifiApCb...");
-    myWifi_InitializeWifiSoftAp_vd();
-}*/
-
-/**---------------------------------------------------------------------------------------
  * @brief     CallBack function to notify controlTask that wifi is active
 *//*-----------------------------------------------------------------------------------*/
 void controlTask_SetEventWifiStarted(void)
@@ -225,7 +202,7 @@ void controlTask_SetEventSocketError(void)
 void controlTask_Task_vd(void *pvParameters)
 {
     EventBits_t uxBits_st;
-    uint32_t bits_u32 = WIFI_STARTED | WIFI_DISCONNECTED | SOCKET_ERROR;
+    uint32_t bits_u32 = WIFI_STARTED | WIFI_DISCONNECTED | SOCKET_ERROR | SYSTEM_REBOOT;
 
     ESP_LOGI(TAG, "controlTask started...");
     while(1)
@@ -238,6 +215,7 @@ void controlTask_Task_vd(void *pvParameters)
             ESP_LOGI(TAG, "WIFI_STARTED received...");
             // activate socket server
             socketServer_Activate_vd();
+           udpLog_Init_st( "192.168.178.25", 1337);
         }
 
         if(0 != (uxBits_st & WIFI_DISCONNECTED))
@@ -248,6 +226,12 @@ void controlTask_Task_vd(void *pvParameters)
         if(0 != (uxBits_st & SOCKET_ERROR))
         {
             ESP_LOGE(TAG, "SOCKET_ERROR received...");
+        }
+
+        if(0 != (uxBits_st & SYSTEM_REBOOT))
+        {
+            vTaskDelay(2000 / portTICK_RATE_MS);
+            esp_restart();
         }
     }
 }
@@ -307,7 +291,6 @@ static int CommandInfoHandler_i(int argc, char** argv)
 static int CommandRebootHandler_i(int argc, char** argv)
 {
     ESP_LOGI(TAG, "networkTask: Reboot in 2 seconds...");
-    vTaskDelay(2000 / portTICK_RATE_MS);
-    esp_restart();
+    xEventGroupSetBits(controlEventGroup_sts, SYSTEM_REBOOT);
     return(0);
 }

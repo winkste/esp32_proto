@@ -104,7 +104,7 @@ class UpdateFirmware(object):
     # Re-boot target.
     def send_reboot_command(self):
         print("sending 'reboot' command to target...")
-        return self.send_command("ota r\n")
+        return self.send_command("boot \n")
 
     def send_command(self, cmd):
         totalSent = 0

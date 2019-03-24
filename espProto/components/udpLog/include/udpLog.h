@@ -1,10 +1,10 @@
 /*****************************************************************************************
-* FILENAME :        commands.h
+* FILENAME :        controlTask.h
 *
 * DESCRIPTION :
-*       Header file for command handling and execution
+*       Header file for
 *
-* Date: 26. January 2019
+* Date: 24. January 2019
 *
 * NOTES :
 *
@@ -28,13 +28,17 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef MAIN_COMMANDS_H_
-#define MAIN_COMMANDS_H_
+#ifndef UDPLOG_H_
+#define UDPLOG_H_
 
 /****************************************************************************************/
 /* Imported header files: */
-#include "stdint.h"
+
+#include "esp_system.h"
+#include "esp_log.h"
 #include "esp_err.h"
+
+#include <string.h>
 
 /****************************************************************************************/
 /* Global constant defines: */
@@ -45,21 +49,30 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
-typedef struct cmdElement_tag
-{
-    const char *cmd_ccp;
-    uint8_t cmdLength_u8;
-    void (*commandCallBack_ptrs)(void *userData_vp);
-}cmdElement_t;
-
 /****************************************************************************************/
 /* Global function definitions: */
 
-extern void commands_Initialize(void);
-extern esp_err_t commands_AddElement(cmdElement_t *cmdElem_pst);
-extern void commands_Execute(char *buffer_cp, uint16_t length_u16);
+/**---------------------------------------------------------------------------------------
+ * @brief     Function to switch back to original logging
+ * @author    S. Wink
+ * @date      24. Mar. 2019
+ * @param     list_st       variable argument list
+ * @return    n/a
+*//*-----------------------------------------------------------------------------------*/
+extern void udpLog_Free_vd(void);
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Initialization of UDP logging
+ * @author    S. Wink
+ * @date      24. Mar. 2019
+ * @param     ipAddr_cchp       IP address of logging server
+ * @param     port              port number of logging server
+ * @return    ESP_OK in case of success, else error code
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t udpLog_Init_st(const char *ipAddr_cchp, unsigned long port);
 
 /****************************************************************************************/
 /* Global data definitions: */
+#endif
 
-#endif /* MAIN_COMMANDS_H_ */
+

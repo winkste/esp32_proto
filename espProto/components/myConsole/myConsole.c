@@ -112,6 +112,7 @@ static SLIST_HEAD(cmd_list_, cmdItem_tag) cmdList_sts;
 static myConsole_config_t config_sts;
 /** temporary buffer used for command line parsing */
 static char *tmpLineBuf_cps;
+const char *TAG = "myConsole";
 
 /****************************************************************************************/
 /* Global functions (unlimited visibility) */
@@ -218,23 +219,27 @@ esp_err_t myConsole_CmdRegister_td(const myConsole_cmd_t *cmd_stp)
 *//*------------------------------------------------------------------------------------*/
 esp_err_t myConsole_Run_td(const char *cmdline_cpc, int *cmdRet_ip)
 {
-    if (tmpLineBuf_cps == NULL) {
+    if (tmpLineBuf_cps == NULL)
+    {
         return ESP_ERR_INVALID_STATE;
     }
     char **argv = (char **) calloc(config_sts.max_cmdline_args, sizeof(char *));
-    if (argv == NULL) {
+    if (argv == NULL)
+    {
         return ESP_ERR_NO_MEM;
     }
     strlcpy(tmpLineBuf_cps, cmdline_cpc, config_sts.max_cmdline_length);
 
     size_t argc = myConsole_SplitArgv(tmpLineBuf_cps, argv,
                                          config_sts.max_cmdline_args);
-    if (argc == 0) {
+    if (argc == 0)
+    {
         free(argv);
         return ESP_ERR_INVALID_ARG;
     }
     const cmdItem_t *cmd_stp = FindCommandByName_stp(argv[0]);
-    if (cmd_stp == NULL) {
+    if (cmd_stp == NULL)
+    {
         free(argv);
         return ESP_ERR_NOT_FOUND;
     }
@@ -356,8 +361,10 @@ static int HelpCommand_i(int argc, char **argv)
     cmdItem_t *it_stp;
 
     /* Print summary of each command */
-    SLIST_FOREACH(it_stp, &cmdList_sts, next) {
-        if (it_stp->help == NULL) {
+    SLIST_FOREACH(it_stp, &cmdList_sts, next)
+    {
+        if (it_stp->help == NULL)
+        {
             continue;
         }
         /* First line: command name and hint
@@ -372,7 +379,8 @@ static int HelpCommand_i(int argc, char **argv)
         printf("  "); // arg_print_formatted does not indent the first line
         arg_print_formatted(stdout, 2, 78, it_stp->help);
         /* Finally, print the list of arguments */
-        if (it_stp->argtable) {
+        if (it_stp->argtable)
+        {
             arg_print_glossary(stdout, (void **) it_stp->argtable, "  %12s  %s\n");
         }
         printf("\n");
@@ -391,8 +399,10 @@ static const cmdItem_t *FindCommandByName_stp(const char *name_cpc)
 {
     const cmdItem_t *cmd_stp = NULL;
     cmdItem_t *it;
-    SLIST_FOREACH(it, &cmdList_sts, next) {
-        if (strcmp(name_cpc, it->command) == 0) {
+    SLIST_FOREACH(it, &cmdList_sts, next)
+    {
+        if (strcmp(name_cpc, it->command) == 0)
+        {
             cmd_stp = it;
             break;
         }

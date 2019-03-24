@@ -194,8 +194,7 @@ static void executeTcpSocket(void)
         {
             length_s32 = recv(workSock_s32, rxBuffer_chp,
                                 sizeof(char) * RX_BUFFER_SIZE - 1, 0);
-            //ESP_LOGI(TAG, "----------- new command received ---------------");
-            //ESP_LOGI(TAG, "msg: %s", rxBuffer_chp);
+
             if (length_s32 < 0) // Error occured during receiving
             {
                 ESP_LOGE(TAG, "recv failed: errno %d", errno); // @suppress("Symbol is not resolved")
@@ -225,7 +224,6 @@ static void executeTcpSocket(void)
                 *(rxBuffer_chp + length_s32) = '\0';
                 *(rxBuffer_chp + length_s32 + 1) = '\n';
                 ESP_LOGI(TAG, "Received %d bytes from %s", length_s32, addr_str);
-                //ESP_LOGI(TAG, "%s", rxBuffer_chp);
 
                 if(ESP_OK == ExecuteCommand(rxBuffer_chp))
                 {
@@ -233,6 +231,7 @@ static void executeTcpSocket(void)
                 }
                 else
                 {
+                    ESP_LOGI(TAG, "Unrecognized msg: %s", rxBuffer_chp);
                     sprintf(rxBuffer_chp, "ERROR\r\n");
                 }
 
@@ -244,7 +243,6 @@ static void executeTcpSocket(void)
                     StopSocket(workSock_s32);
                     break;
                 }
-                //ESP_LOGI(TAG, "----------- responded -----------------------");
             }
         }
     }

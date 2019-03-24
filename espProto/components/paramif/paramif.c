@@ -288,7 +288,6 @@ esp_err_t paramif_Read_td(paramif_objHdl_t handle_xp, uint8_t *dest_u8p)
             memcpy(dest_u8p, handle_xp->param_st.defaults_u8p,
                     handle_xp->param_st.length_u16);
             err_st = paramif_Write_td(handle_xp, handle_xp->param_st.defaults_u8p);
-            //ESP_LOGI(TAG, "test6 %d", err_st);
         }
     }
 
