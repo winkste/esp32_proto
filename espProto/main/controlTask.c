@@ -46,6 +46,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "myVersion.h"
 #include "otaUpdate.h"
 #include "sdkconfig.h"
+#include "myMqtt.h"
 
 #include "../components/udpLog/include/udpLog.h"
 
@@ -96,6 +97,12 @@ static const ctrlData_t defaultControlData_stsc =
     .startupCounter_u32 = 0UL,
 };
 
+static const char *MQTT_HOST = "192.168.178.45";
+static const uint32_t mqttPort_u32sc = 1883;
+static const char *MQTT_USER_NAME = "winkste";
+static const char *MQTT_PASSWORD = "sw10950";
+
+
 static const char *CTRL_PARA_IDENT = "controls";
 static paramif_objHdl_t ctrlParaHdl_xps;
 /****************************************************************************************/
@@ -125,6 +132,8 @@ esp_err_t controlTask_Initialize_st(void)
     paramif_param_t paramHdl_st;
     paramif_allocParam_t controlAllocParam_st;
     otaUpdate_param_t otaParam_st;
+
+    myMqtt_param_t mqttParam_st;
 
     /* parameter initialization */
     ESP_ERROR_CHECK(paramif_InitializeParameter_td(&paramHdl_st));
@@ -163,6 +172,15 @@ esp_err_t controlTask_Initialize_st(void)
 
     otaUpdate_InitializeParameter_td(&otaParam_st);
     otaUpdate_Initialize_td(&otaParam_st);
+
+
+    ESP_ERROR_CHECK(myMqtt_InitializeParameter(&mqttParam_st));
+    memcpy(mqttParam_st.host_u8a, MQTT_HOST, strlen(MQTT_HOST));
+    mqttParam_st.port_u32 = mqttPort_u32sc;
+    memcpy(mqttParam_st.userName_u8a, MQTT_USER_NAME, strlen(MQTT_USER_NAME));
+    memcpy(mqttParam_st.userPwd_u8a, MQTT_PASSWORD, strlen(MQTT_PASSWORD));
+    ESP_ERROR_CHECK(myMqtt_Initialize(&mqttParam_st));
+
 
     /* start the control task */
     xTaskCreate(controlTask_Task_vd, "controlTask", 4096, NULL, 5, NULL);
@@ -215,12 +233,16 @@ void controlTask_Task_vd(void *pvParameters)
             ESP_LOGI(TAG, "WIFI_STARTED received...");
             // activate socket server
             socketServer_Activate_vd();
-           udpLog_Init_st( "192.168.178.25", 1337);
+            //udpLog_Init_st( "192.168.178.25", 1337);
+            //ESP_ERROR_CHECK(myMqtt_Connect());
+            esp_err_t test = myMqtt_Connect();
+            ESP_LOGE(TAG, "client connect return:%d", test);
         }
 
         if(0 != (uxBits_st & WIFI_DISCONNECTED))
         {
             ESP_LOGI(TAG, "WIFI_DISCONNECTED received...");
+            //udpLog_Free_vd();
         }
 
         if(0 != (uxBits_st & SOCKET_ERROR))
