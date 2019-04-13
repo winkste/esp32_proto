@@ -64,6 +64,13 @@ extern esp_err_t    controlTask_Initialize_st(void);
 extern void         controlTask_SetEventWifiStarted(void);
 
 /**---------------------------------------------------------------------------------------
+ * @brief     CallBack function to notify controlTask that wifi is active in station mode
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+*//*-----------------------------------------------------------------------------------*/
+extern void         controlTask_SetEventWifiStartedSta(void);
+
+/**---------------------------------------------------------------------------------------
  * @brief     Callback function to notify controlTask that WIFI is disconnected
  * @author    S. Wink
  * @date      24. Jan. 2019

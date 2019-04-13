@@ -45,6 +45,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 typedef struct myWifi_parameter_tag
 {
     void (*eventWifiStarted_ptrs)(void);
+    void (*eventWifiStartedSta_ptrs)(void);
     void (*eventWifiDisconnected_ptrs)(void);
 }myWifi_parameter_t;
 /****************************************************************************************/

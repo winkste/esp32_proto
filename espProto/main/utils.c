@@ -1,0 +1,132 @@
+/*****************************************************************************************
+* FILENAME :        utils.c
+*
+* DESCRIPTION :
+*       Class implementation for generic Utils
+*
+* NOTES :
+*
+*
+* Copyright (c) [2017] [Stephan Wink]
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+* SOFTWARE.
+*
+* AUTHOR :    Stephan Wink        START DATE :    09.09.2018
+*
+*****************************************************************************************/
+
+/****************************************************************************************/
+/* Include Interfaces */
+#include "utils.h"
+
+/****************************************************************************************/
+/* Local constant defines */
+
+/****************************************************************************************/
+/* Local function like makros */
+
+/****************************************************************************************/
+/* Local type definitions (enum, struct, union) */
+
+/****************************************************************************************/
+/* Public functions (unlimited visibility) */
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Copies a float value to a character buffer
+*//*-----------------------------------------------------------------------------------*/
+char* utils_FloatToString_chp(float f, int p, char* pBuffer)
+{
+    return dtostrf(f, 0, p, pBuffer);       // call the library function
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Copies a integer value to decimal representive in a character buffer
+*//*-----------------------------------------------------------------------------------*/
+char* utils_IntegerToDecString_chp(uint32_t i, char* pBuffer)
+{
+    return itoa(i, pBuffer, 10);       // call the library function
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Copies a integer value to decimal representive in a character buffer
+*//*-----------------------------------------------------------------------------------*/
+char* utils_RGBToString_chp(uint8_t red_u8, uint8_t green_u8, uint8_t blue_u8,
+                          char* pBuffer_p)
+{
+    snprintf(pBuffer_p, 20, "%d,%d,%d", red_u8, green_u8, blue_u8);
+    return(pBuffer_p);
+}
+
+
+/**---------------------------------------------------------------------------------------
+ * @brief     This function helps to build the complete topic including the
+ *              custom device.
+*//*-----------------------------------------------------------------------------------*/
+char* utils_BuildSendTopicWChan_chp(const char *dev_p, const char *channel_p,
+                                      const char *topic_p, char *buffer_p)
+{
+  sprintf(buffer_p, "std/%s/s/%s/%s", dev_p, channel_p, topic_p);
+  return buffer_p;
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     This function helps to build the complete topic including the
+ *              custom device.
+*//*-----------------------------------------------------------------------------------*/
+char* utils_BuildSendTopic_chp(const char *dev_p,
+                                      const char *topic_p, char *buffer_p)
+{
+  sprintf(buffer_p, "std/%s/%s", dev_p, topic_p);
+  return buffer_p;
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     This function helps to build the complete topic including the
+ *              custom device.
+*//*-----------------------------------------------------------------------------------*/
+char* utils_BuildReceiveTopic_chp(const char *dev_p, const char *channel_p,
+                                      const char *topic_p, char *buffer_p)
+{
+  sprintf(buffer_p, "std/%s/r/%s/%s", dev_p, channel_p, topic_p);
+  return buffer_p;
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     This function calculates the logarithm digits value (0-1023) based on the
+ *              linear  input percentage (0-100%).
+*//*-----------------------------------------------------------------------------------*/
+uint16_t utils_CalcLogDigitsFromPercent_u16(uint8_t percent_u8)
+{
+  return(uint16_t) ((1023.0F * log10(max((uint8_t)1U, percent_u8)))
+                      / log10(100.0) + 0.5F);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     This function calculates the logarithm digits value (0-1023) based on the
+ *              linear  input percentage (0-100%).
+*//*-----------------------------------------------------------------------------------*/
+uint16_t utils_CalcLogDigitsFromPercent_u16(uint8_t percent_u8, uint16_t maxVal_u16)
+{
+  return(uint16_t) ((maxVal_u16 * log10(max((uint8_t)1U, percent_u8)))
+                      / log10(100.0) + 0.5F);
+}
+
+/****************************************************************************************/
+/* Private functions: */
+

@@ -34,6 +34,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /* Include Interfaces */
 #include "controlTask.h"
 
+#include <mqttdrv.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -46,8 +47,6 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "myVersion.h"
 #include "otaUpdate.h"
 #include "sdkconfig.h"
-#include "myMqtt.h"
-
 #include "../components/udpLog/include/udpLog.h"
 
 /****************************************************************************************/
@@ -57,6 +56,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
     #define BIT1    0x00000001
     #define BIT2    0x00000002
     #define BIT3    0x00000004
+    #define BIT4    0x00000008
 #endif
 
 /****************************************************************************************/
@@ -82,6 +82,7 @@ const int WIFI_STARTED      = BIT0;
 const int WIFI_DISCONNECTED = BIT1;
 const int SOCKET_ERROR      = BIT2;
 const int SYSTEM_REBOOT     = BIT3;
+const int WIFI_STARTED_STA  = BIT4;
 
 static EventGroupHandle_t controlEventGroup_sts;
 static const char *TAG = "controlTask";
@@ -117,6 +118,7 @@ esp_err_t controlTask_Initialize_st(void)
     myWifi_parameter_t param_st =
     {
         controlTask_SetEventWifiStarted,
+        controlTask_SetEventWifiStartedSta,
         controlTask_SetEventWifiDisconnected
     };
     socketServer_parameter_t sockParam_st =
@@ -133,7 +135,7 @@ esp_err_t controlTask_Initialize_st(void)
     paramif_allocParam_t controlAllocParam_st;
     otaUpdate_param_t otaParam_st;
 
-    myMqtt_param_t mqttParam_st;
+    mqttdrv_param_t mqttParam_st;
 
     /* parameter initialization */
     ESP_ERROR_CHECK(paramif_InitializeParameter_td(&paramHdl_st));
@@ -162,7 +164,6 @@ esp_err_t controlTask_Initialize_st(void)
     socketServer_Initialize_st(&sockParam_st);  // 3. start the socket sever
     myWifi_RegisterWifiCommands();              // 4. register wifi related commands
 
-    paramif_PrintHandle_vd(ctrlParaHdl_xps);
     /* update startup counter in none volatile memory */
     ESP_ERROR_CHECK(paramif_Read_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
     controlData_sts.startupCounter_u32++;
@@ -170,16 +171,17 @@ esp_err_t controlTask_Initialize_st(void)
     ESP_LOGI(TAG, "New startup detected, system restarted %d times.",
                 controlData_sts.startupCounter_u32);
 
+    /* initialize over the air firmware update */
     otaUpdate_InitializeParameter_td(&otaParam_st);
     otaUpdate_Initialize_td(&otaParam_st);
 
-
-    ESP_ERROR_CHECK(myMqtt_InitializeParameter(&mqttParam_st));
+    /* initialize the mqtt driver including the mqtt client */
+    ESP_ERROR_CHECK(mqttdrv_InitializeParameter(&mqttParam_st));
     memcpy(mqttParam_st.host_u8a, MQTT_HOST, strlen(MQTT_HOST));
     mqttParam_st.port_u32 = mqttPort_u32sc;
     memcpy(mqttParam_st.userName_u8a, MQTT_USER_NAME, strlen(MQTT_USER_NAME));
     memcpy(mqttParam_st.userPwd_u8a, MQTT_PASSWORD, strlen(MQTT_PASSWORD));
-    ESP_ERROR_CHECK(myMqtt_Initialize(&mqttParam_st));
+    ESP_ERROR_CHECK(mqttdrv_Initialize(&mqttParam_st));
 
 
     /* start the control task */
@@ -195,6 +197,16 @@ void controlTask_SetEventWifiStarted(void)
     ESP_LOGI(TAG, "callback controlTask_SetEventWifiStarted...");
     xEventGroupSetBits(controlEventGroup_sts, WIFI_STARTED);
 }
+
+/**---------------------------------------------------------------------------------------
+ * @brief     CallBack function to notify controlTask that wifi is active in station mode
+*//*-----------------------------------------------------------------------------------*/
+void controlTask_SetEventWifiStartedSta(void)
+{
+    ESP_LOGI(TAG, "callback controlTask_SetEventWifiStartedSta...");
+    xEventGroupSetBits(controlEventGroup_sts, WIFI_STARTED_STA);
+}
+
 
 /**---------------------------------------------------------------------------------------
  * @brief     Callback function to notify controlTask that WIFI is disconnected
@@ -220,7 +232,8 @@ void controlTask_SetEventSocketError(void)
 void controlTask_Task_vd(void *pvParameters)
 {
     EventBits_t uxBits_st;
-    uint32_t bits_u32 = WIFI_STARTED | WIFI_DISCONNECTED | SOCKET_ERROR | SYSTEM_REBOOT;
+    uint32_t bits_u32 = WIFI_STARTED | WIFI_DISCONNECTED | WIFI_STARTED_STA |
+                        SOCKET_ERROR | SYSTEM_REBOOT;
 
     ESP_LOGI(TAG, "controlTask started...");
     while(1)
@@ -234,9 +247,15 @@ void controlTask_Task_vd(void *pvParameters)
             // activate socket server
             socketServer_Activate_vd();
             //udpLog_Init_st( "192.168.178.25", 1337);
-            //ESP_ERROR_CHECK(myMqtt_Connect());
-            esp_err_t test = myMqtt_Connect();
-            ESP_LOGE(TAG, "client connect return:%d", test);
+        }
+
+        if(0 != (uxBits_st & WIFI_STARTED_STA))
+        {
+            ESP_LOGI(TAG, "WIFI_STARTED_STA received...");
+            // activate socket server
+            socketServer_Activate_vd();
+            //udpLog_Init_st( "192.168.178.25", 1337);
+            mqttdrv_StartMqttDemon();
         }
 
         if(0 != (uxBits_st & WIFI_DISCONNECTED))

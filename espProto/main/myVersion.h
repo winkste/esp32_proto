@@ -63,6 +63,30 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 *//*-----------------------------------------------------------------------------------*/
 extern esp_err_t myVersion_Initialize_st(void);
 
+/**---------------------------------------------------------------------------------------
+ * @brief     Provides read access to the firmware identifier
+ * @author    S. Wink
+ * @date      08. Mar. 2019
+ * @return    pointer to the firmware idenitfier
+*//*-----------------------------------------------------------------------------------*/
+extern const char * myVersion_GetFwIdentifier_cch(void);
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Provides read access to the firmware version
+ * @author    S. Wink
+ * @date      08. Mar. 2019
+ * @return    pointer to the firmware version
+*//*-----------------------------------------------------------------------------------*/
+extern const char * myVersion_GetFwVersion_cch(void);
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Provides read access to the firmware description
+ * @author    S. Wink
+ * @date      08. Mar. 2019
+ * @return    pointer to the firmware description
+*//*-----------------------------------------------------------------------------------*/
+extern const char * myVersion_GetFwDescription_cch(void);
+
 #endif /* MYVERSION_H */
 /****************************************************************************************/
 

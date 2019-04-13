@@ -36,6 +36,8 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/espProto/frame}&quot;"/>
 									<listOptionValue builtIn="false" value="/Users/stephan_wink/Documents/esp/esp-idf/components/app_update/include"/>
 									<listOptionValue builtIn="false" value="/Users/stephan_wink/Documents/esp/esp-idf/components/mqtt/esp-mqtt/include"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/espProto/components/mqttif/include}&quot;"/>
+									<listOptionValue builtIn="false" value="/Users/stephan_wink/Documents/esp/xtensa-esp32-elf/lib/gcc/xtensa-esp32-elf/5.2.0/include"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.477019038" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
@@ -54,6 +56,8 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/espProto/frame}&quot;"/>
 									<listOptionValue builtIn="false" value="/Users/stephan_wink/Documents/esp/esp-idf/components/app_update/include"/>
 									<listOptionValue builtIn="false" value="/Users/stephan_wink/Documents/esp/esp-idf/components/mqtt/esp-mqtt/include"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/espProto/components/mqttif/include}&quot;"/>
+									<listOptionValue builtIn="false" value="/Users/stephan_wink/Documents/esp/xtensa-esp32-elf/lib/gcc/xtensa-esp32-elf/5.2.0/include"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.1311655607" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
 							</tool>
@@ -80,6 +84,8 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/espProto/frame}&quot;"/>
 									<listOptionValue builtIn="false" value="/Users/stephan_wink/Documents/esp/esp-idf/components/app_update/include"/>
 									<listOptionValue builtIn="false" value="/Users/stephan_wink/Documents/esp/esp-idf/components/mqtt/esp-mqtt/include"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/espProto/components/mqttif/include}&quot;"/>
+									<listOptionValue builtIn="false" value="/Users/stephan_wink/Documents/esp/xtensa-esp32-elf/lib/gcc/xtensa-esp32-elf/5.2.0/include"/>
 								</option>
 								<inputType id="cdt.managedbuild.tool.gnu.assembler.input.922852545" superClass="cdt.managedbuild.tool.gnu.assembler.input"/>
 							</tool>

@@ -86,7 +86,7 @@ typedef struct wifiParam_tag
 static int stationCommandHandler_i(int argc, char** argv);
 static int apCommandHandler_i(int argc, char** argv);
 static int paramCommandHandler_i(int argc, char** argv);
-static esp_err_t eventHandler_st(void *ctx, system_event_t *event);
+static esp_err_t EventHandler_st(void *ctx, system_event_t *event);
 
 /****************************************************************************************/
 /* Local variables: */
@@ -96,6 +96,7 @@ static EventGroupHandle_t wifiEventGroup_sts;
 static uint8_t retryConnectCounter_u8st = 0U;
 
 static void (*eventWifiStarted_ptrs)(void);
+static void (*eventWifiStartedSta_ptrs)(void);
 static void (*eventWifiDisconnected_ptrs)(void);
 
 static wifi_config_t stationWifiSettings_sts =
@@ -146,12 +147,13 @@ static const wifiPrarm_t defaultParam_stsc =
 void myWifi_InitializeWifi_vd(myWifi_parameter_t *param_stp)
 {
     eventWifiStarted_ptrs = param_stp->eventWifiStarted_ptrs;
+    eventWifiStartedSta_ptrs = param_stp->eventWifiStartedSta_ptrs;
     eventWifiDisconnected_ptrs = param_stp->eventWifiDisconnected_ptrs;
     paramif_allocParam_t wifiAllocParam_st;
 
     tcpip_adapter_init();
     wifiEventGroup_sts = xEventGroupCreate();
-    ESP_ERROR_CHECK(esp_event_loop_init(eventHandler_st, NULL) );
+    ESP_ERROR_CHECK(esp_event_loop_init(EventHandler_st, NULL) );
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
@@ -323,7 +325,7 @@ static int paramCommandHandler_i(int argc, char** argv)
  * @param     event     the received event
  * @return    a esp_err_t based error code, currently only ESP_OK
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t eventHandler_st(void *ctx, system_event_t *event)
+static esp_err_t EventHandler_st(void *ctx, system_event_t *event)
 {
     ESP_LOGI(TAG, "event handler called");
 
@@ -347,7 +349,7 @@ static esp_err_t eventHandler_st(void *ctx, system_event_t *event)
         ESP_LOGI(TAG, "IPv6: %s", ip6);
         if(NULL != eventWifiStarted_ptrs)
         {
-            (*eventWifiStarted_ptrs)();
+            (*eventWifiStartedSta_ptrs)();
         }
         ESP_LOGI(TAG, "callBack function for wifi start executed...");
         break;

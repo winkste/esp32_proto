@@ -34,9 +34,12 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /* Imported header files: */
 
 #include "stdint.h"
+#include "esp_err.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
+#define mqttif_MAX_SIZE_OF_TOPIC    256U
+#define mqttif_MAX_SIZE_OF_DATA     256U
 
 /****************************************************************************************/
 /* Global function like macro defines (to be avoided): */
@@ -49,11 +52,13 @@ typedef struct mqttif_msg_tag
         char *topic_chp;
         uint32_t dataLen_u32;
         char *data_chp;
+        int32_t msgId_s32;
 }mqttif_msg_t;
 
 typedef void (* mqttif_Connected_td)(void);
-typedef void (* mqtt_Disconnected_td)(void);
-typedef void (* mqtt_DataReceived_td)(mqttif_msg_t *);
+typedef void (* mqttif_Disconnected_td)(void);
+typedef esp_err_t (* mqttif_DataReceived_td)(mqttif_msg_t *);
+typedef esp_err_t (* mqttif_Publish_td)(mqttif_msg_t *, uint32_t);
 
 /****************************************************************************************/
 /* Global function definitions: */

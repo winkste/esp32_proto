@@ -1,5 +1,5 @@
 /*****************************************************************************************
-* FILENAME :        myMqtt.h
+* FILENAME :        gendev.h
 *
 * DESCRIPTION :
 *       Header file for
@@ -28,131 +28,104 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef MYMQTT_H
-#define MYMQTT_H
+#ifndef GENDEV_H_
+#define GENDEV_H_
+
 /****************************************************************************************/
 /* Imported header files: */
-
 #include "mqttif.h"
 #include "stdint.h"
 #include "esp_err.h"
 
 #include "stdbool.h"
-
-
 /****************************************************************************************/
 /* Global constant defines: */
-#define myMqtt_MAX_HOST_NAME_LEN    64U
-#define myMqtt_MAX_USER_NAME_LEN    20U
-#define myMqtt_MAX_USER_PWD_LEN     20U
-#define myMqtt_MAX_SIZE_OF_TOPIC    64U
 
 /****************************************************************************************/
 /* Global function like macro defines (to be avoided): */
 
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
-typedef struct myMqtt_param_tag
-{
-    uint8_t host_u8a[myMqtt_MAX_HOST_NAME_LEN];     /*!< MQTT server domain (ipv4 as string) */
-    uint32_t port_u32;                              /*!< MQTT server port */
-    uint8_t userName_u8a[myMqtt_MAX_USER_NAME_LEN]; /*!< MQTT username */
-    uint8_t userPwd_u8a[myMqtt_MAX_USER_PWD_LEN];   /*!< MQTT password */
-}myMqtt_param_t;
 
-typedef struct myMqtt_substParam_tag
+typedef struct gendev_param_tag
 {
-    uint8_t topic_u8a[myMqtt_MAX_SIZE_OF_TOPIC];
-    uint32_t qos_u32;
-    mqttif_Connected_td conn_fp;
-    mqtt_Disconnected_td discon_fp;
-    mqtt_DataReceived_td dataRecv_fp;
-}myMqtt_substParam_t;
+        mqttif_Publish_td publishHandler_fp;
+        char *deviceName_cchp;
+        uint8_t id_u8c;
+}gendev_param_t;
 
-typedef struct myMqtt_obj_tag* mqtt_subsHdl_t;
 /****************************************************************************************/
 /* Global function definitions: */
 
 /**---------------------------------------------------------------------------------------
- * @brief     Initializes the initialization structure of the mqtt module
+ * @brief     Initializes the initialization structure of the generic device module
  * @author    S. Wink
  * @date      25. Mar. 2019
  * @param     param_stp         pointer to the configuration structure
  * @return    n/a
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t myMqtt_InitializeParameter(myMqtt_param_t *param_stp);
+extern esp_err_t gendev_InitializeParameter_st(gendev_param_t *param_stp);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Initialization of the mqtt module
+ * @brief     Initialization of the generic device module
  * @author    S. Wink
  * @date      25. Mar. 2019
  * @param     param_stp         pointer to the configuration structure
  * @return    n/a
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t myMqtt_Initialize(myMqtt_param_t *param_stp);
+extern esp_err_t gendev_Initialize_st(gendev_param_t *param_stp);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Connects to the MQTT broker
+ * @brief     Get subscribe topics from the generic device
  * @author    S. Wink
  * @date      25. Mar. 2019
- * @return    n/a
+ * @param     idx_u16   index of topic, can be used as iterator
+ * @return    returns pointer to topic or NULL in case of out of bounce
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t myMqtt_Connect(void);
+extern const char* gendev_GetSubsTopics_cchp(uint16_t idx_u16);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Disconnects from the MQTT broker
+ * @brief     Get the mqtt connection success function handler
  * @author    S. Wink
  * @date      25. Mar. 2019
- * @return    n/a
+ * @return    returns a function handler, NULL if not supported
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t myMqtt_Disconnect(void);
+extern mqttif_Connected_td gendev_GetConnectHandler_fp(void);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Initialize subscription parameter
+ * @brief     Get the mqtt disconnection success function handler
  * @author    S. Wink
  * @date      25. Mar. 2019
- * @param     subsParam_stp         user structure for mqtt subs/pubs
- * @return    n/a
+ * @return    returns a function handler, NULL if not supported
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t myMqtt_InitSubParam(myMqtt_substParam_t *subsParam_stp);
+extern mqttif_Disconnected_td gendev_GetDisconnectHandler_fp(void);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Allocate subscribe handle
+ * @brief     Get the mqtt data received function handler
  * @author    S. Wink
  * @date      25. Mar. 2019
- * @param     subsParam_stp         user structure for mqtt subs/pubs
- * @return    in case of success an opaque pointer to the handle, else NULL
+ * @return    returns a function handler, NULL if not supported
 *//*-----------------------------------------------------------------------------------*/
-extern mqtt_subsHdl_t myMqtt_AllocSub_xp(myMqtt_substParam_t *subsParam_stp);
+extern mqttif_DataReceived_td gendev_GetDataReceivedHandler_fp(void);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Deallocate subscribe handle
+ * @brief     Activate the generic device function
  * @author    S. Wink
  * @date      25. Mar. 2019
- * @param     subsHdl_xp         opaque pointer to the subsription handle
- * @return    in case of success an opaque pointer to the handle, else NULL
+ * @return    returns ESP_OK if success, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t myMqtt_DeAllocSub_st(mqtt_subsHdl_t subsHdl_xp);
+extern esp_err_t gendev_Activate_st(void);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Subscribe to a MQTT message
+ * @brief     Deactivate the generic device function
  * @author    S. Wink
  * @date      25. Mar. 2019
- * @param     subsHdl_xp         opaque pointer to the subsription handle
- * @return    ESP_OK if success, else ESP_FAIL
+ * @return    returns ESP_OK if success, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t myMqtt_Subscribe_xp(mqtt_subsHdl_t subsHdl_xp);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Un-Subscribe MQTT message
- * @author    S. Wink
- * @date      25. Mar. 2019
- * @param     subsHdl_xp         subscription handle
- * @return    ESP_OK if the message was successful un-subscribed
-*//*-----------------------------------------------------------------------------------*/
-extern esp_err_t myMqtt_UnSubscribe(mqtt_subsHdl_t subsHdl_xp);
+extern esp_err_t gendev_Deactivate_st(void);
 
 /****************************************************************************************/
 /* Global data definitions: */
 
-#endif
+
+#endif /* GENDEV_H_ */
