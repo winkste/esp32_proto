@@ -35,12 +35,14 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Imported header files: */
 
+#include "stdint.h"
+
 /****************************************************************************************/
 /* Global constant defines: */
 
 /****************************************************************************************/
 /* Global function like macro defines (to be avoided): */
-
+#define utils_MIN(x, y) (((x) < (y)) ? (x) : (y))
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
@@ -51,19 +53,21 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * @brief     Copies a float value to a character buffer
  * @author    winkste
  * @date      20 Okt. 2017
+ * @param     data value as float representation
  * @param     buffer_p    pointer to result buffer string
  * @return    pointer to char buffer
 *//*-----------------------------------------------------------------------------------*/
-extern char* utils_FloatToString_chp(float f, int p, char* pBuffer);
+extern char* utils_FloatToString_chp(float value_f32, char* buffer_chp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Copies a integer value to decimal representive in a character buffer
  * @author    winkste
  * @date      20 Okt. 2017
+ * @param     data value as integer representation
  * @param     buffer_p    pointer to result buffer string
  * @return    pointer to char buffer
 *//*-----------------------------------------------------------------------------------*/
-extern char* utils_IntegerToDecString_chp(uint32_t i, char* pBuffer);
+extern char* utils_IntegerToDecString_chp(int32_t value_s32, char* buffer_chp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Copies a integer value to decimal representive in a character buffer
@@ -139,7 +143,7 @@ extern uint16_t utils_CalcLogDigitsFromPercent_u16(uint8_t percent_u8);
  * @param     maxVal_u16       maximum digit value
  * @return    N/A
 *//*-----------------------------------------------------------------------------------*/
-extern uint16_t utils_CalcLogDigitsFromPercent_u16(uint8_t percent_u8,
+extern uint16_t utils_CalcLogDigitsFromPercentWMax_u16(uint8_t percent_u8,
                                                     uint16_t maxVal_u16);
 
 /****************************************************************************************/

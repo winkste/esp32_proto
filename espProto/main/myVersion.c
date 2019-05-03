@@ -77,6 +77,30 @@ esp_err_t myVersion_Initialize_st(void)
     return(ESP_OK);
 }
 
+/**---------------------------------------------------------------------------------------
+ * @brief     Provides read access to the firmware identifier
+*//*-----------------------------------------------------------------------------------*/
+const char * myVersion_GetFwIdentifier_cch(void)
+{
+    return(FW_IDENTIFIER);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Provides read access to the firmware version
+*//*-----------------------------------------------------------------------------------*/
+const char * myVersion_GetFwVersion_cch(void)
+{
+    return(FW_VERSION);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Provides read access to the firmware description
+*//*-----------------------------------------------------------------------------------*/
+const char * myVersion_GetFwDescription_cch(void)
+{
+    return(FW_DESCRIPTION);
+}
+
 /****************************************************************************************/
 /* Local functions: */
 

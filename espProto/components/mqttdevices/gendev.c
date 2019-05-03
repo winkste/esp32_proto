@@ -38,12 +38,13 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "string.h"
 #include "esp_log.h"
 #include "esp_err.h"
-#include "mqttif.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "freertos/timers.h"
 
+#include "mqttif.h"
+#include "utils.h"
 #include "myVersion.h"
 
 /****************************************************************************************/
@@ -109,6 +110,8 @@ static const char *subscriptions_cchsap[MQTT_SUBSCRIPTIONS_NUM] =
     MQTT_SUB_COMMAND, // command message for generic read commands
     MQTT_SUB_BCAST // write message for geeneric broadcast
 };
+static char subscriptions_chsap[MQTT_SUBSCRIPTIONS_NUM][mqttif_MAX_SIZE_OF_TOPIC];
+static uint16_t subsCounter_u8s = 0U;
 
 static const int MQTT_CON       = BIT0;
 static const int MQTT_DISCON    = BIT1;
@@ -118,7 +121,7 @@ static const int MQTT_DATA      = BIT4;
 
 static EventGroupHandle_t gendevEventGroup_sts;
 
-const char *TAG = "gendev";
+static const char *TAG = "gendev";
 
 static TimerHandle_t cycleTimer_sts;
 
@@ -133,15 +136,15 @@ esp_err_t gendev_InitializeParameter_st(gendev_param_t *param_stp)
     esp_err_t result_st = ESP_FAIL;
 
     singleton_sts.state_en = STATE_NOT_INITIALIZED;
-    singleton_sts.param_st.deviceName_cchp = "dev99";
-    singleton_sts.param_st.id_u8c = 0U;
+    singleton_sts.param_st.deviceName_chp = "dev99";
+    singleton_sts.param_st.id_chp = 0U;
     singleton_sts.param_st.publishHandler_fp = NULL;
 
     if(NULL != param_stp)
     {
         param_stp->publishHandler_fp = NULL;
-        param_stp->deviceName_cchp = "dev99";
-        param_stp->id_u8c = 0U;
+        param_stp->deviceName_chp = "dev99";
+        param_stp->id_chp = "0";
 
         result_st = ESP_OK;
     }
@@ -158,9 +161,19 @@ esp_err_t gendev_Initialize_st(gendev_param_t *param_stp)
 
     if(NULL != param_stp)
     {
-        singleton_sts.param_st.deviceName_cchp = param_stp->deviceName_cchp;
-        singleton_sts.param_st.id_u8c = param_stp->id_u8c;
+        singleton_sts.param_st.deviceName_chp = param_stp->deviceName_chp;
+        singleton_sts.param_st.id_chp = param_stp->id_chp;
         singleton_sts.param_st.publishHandler_fp = param_stp->publishHandler_fp;
+
+        /* create subscription topics */
+        for(uint8_t idx_u8 = 0U; idx_u8 < MQTT_SUBSCRIPTIONS_NUM; idx_u8++)
+        {
+            utils_BuildReceiveTopic_chp(singleton_sts.param_st.deviceName_chp,
+                                        singleton_sts.param_st.id_chp,
+                                        subscriptions_cchsap[idx_u8],
+                                        &subscriptions_chsap[idx_u8][0]);
+            subsCounter_u8s++;
+        }
 
         singleton_sts.state_en = STATE_INITIALIZED;
 
@@ -181,11 +194,9 @@ esp_err_t gendev_Initialize_st(gendev_param_t *param_stp)
 *//*-----------------------------------------------------------------------------------*/
 const char* gendev_GetSubsTopics_cchp(uint16_t idx_u16)
 {
-    uint16_t elements_u16 = sizeof(subscriptions_cchsap) / sizeof(subscriptions_cchsap[0]);
-
-    if(elements_u16 > idx_u16)
+    if(subsCounter_u8s > idx_u16)
     {
-        return(subscriptions_cchsap[idx_u16]);
+        return(&subscriptions_chsap[idx_u16][0]);
     }
     else
     {
@@ -274,7 +285,7 @@ static esp_err_t OnDataReceivedHandler_st(mqttif_msg_t *msg_stp)
                     msg_stp->topic_chp, msg_stp->data_chp);
     xEventGroupSetBits(gendevEventGroup_sts, MQTT_DATA);
 
-    if(0U == strcmp(msg_stp->topic_chp, MQTT_SUB_COMMAND))
+    if(0U == strcmp(msg_stp->topic_chp, &subscriptions_chsap[0][0]))
     {
         if(0U == strcmp(msg_stp->data_chp, MQTT_PAYLOAD_CMD_INFO))
         {

@@ -200,6 +200,7 @@ esp_err_t mqttdrv_Initialize(mqttdrv_param_t *param_stp)
     }
 
     publishSema_sts = xSemaphoreCreateBinary();
+    mqttEventGroup_sts = xEventGroupCreate();
 
     /* start the mqtt task */
     xTaskCreate(Task_vd, "mqttTask", 4096, NULL, 5, NULL);
@@ -294,6 +295,7 @@ esp_err_t mqttdrv_Subscribe_xp(mqttdrv_subsHdl_t subsHdl_xp)
                                                 subsHdl_xp->param_st.qos_u32);
         if(ESP_OK == result_st)
         {
+            ESP_LOGI(TAG, "subscribed to topic: %s", (char *)&subsHdl_xp->param_st.topic_u8a[0]);
             subsHdl_xp->subscribed_bol = true;
         }
     }
@@ -477,12 +479,16 @@ static void HandleConnect_vd(esp_mqtt_event_handle_t event_stp)
                 if(NULL != index_xps->param_st.conn_fp)
                 {
                     index_xps->param_st.conn_fp();
+                    //subscribe users
+                    esp_mqtt_client_subscribe(client_xps,
+                            (char *)&index_xps->param_st.topic_u8a[0],
+                            index_xps->param_st.qos_u32);
                 }
                 index_xps = index_xps->next_xp;
             }
         }
 
-        result_st = esp_mqtt_client_subscribe(client_xps, "/topic/qos0", 0);
+        /*result_st = esp_mqtt_client_subscribe(client_xps, "/topic/qos0", 0);
         ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", result_st);
 
         result_st = esp_mqtt_client_subscribe(client_xps, "std/dev21/s/temp_hum/temp", 0);
@@ -492,7 +498,7 @@ static void HandleConnect_vd(esp_mqtt_event_handle_t event_stp)
         ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", result_st);
 
         result_st = esp_mqtt_client_unsubscribe(client_xps, "/topic/qos1");
-        ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", result_st);
+        ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", result_st);*/
     }
     else
     {
@@ -554,11 +560,12 @@ static void HandleDisconnect_vd(esp_mqtt_event_handle_t event_stp)
 *//*------------------------------------------------------------------------------------*/
 static void HandleSubscription_vd(esp_mqtt_event_handle_t event_stp)
 {
-    esp_err_t result_st = ESP_FAIL;
+    //esp_err_t result_st = ESP_FAIL;
 
-    ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event_stp->msg_id);
-    result_st = esp_mqtt_client_publish(client_xps, "/topic/qos0", "data", 0, 0, 0);
-    ESP_LOGI(TAG, "sent publish successful, msg_id=%d", result_st);
+    ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d, topic=%s", event_stp->msg_id,
+                                                                event_stp->topic);
+//    result_st = esp_mqtt_client_publish(client_xps, "/topic/qos0", "data", 0, 0, 0);
+//    ESP_LOGI(TAG, "sent publish successful, msg_id=%d", result_st);
 }
 
 /**---------------------------------------------------------------------------------------

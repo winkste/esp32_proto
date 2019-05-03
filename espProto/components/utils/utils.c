@@ -35,6 +35,11 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /* Include Interfaces */
 #include "utils.h"
 
+#include "stdint.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "math.h"
+
 /****************************************************************************************/
 /* Local constant defines */
 
@@ -50,21 +55,22 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /**---------------------------------------------------------------------------------------
  * @brief     Copies a float value to a character buffer
 *//*-----------------------------------------------------------------------------------*/
-char* utils_FloatToString_chp(float f, int p, char* pBuffer)
+char* utils_FloatToString_chp(float value_f32, char* buffer_chp)
 {
-    return dtostrf(f, 0, p, pBuffer);       // call the library function
+    sprintf(buffer_chp, "%.4f", value_f32);
+    return(buffer_chp);
 }
 
 /**---------------------------------------------------------------------------------------
  * @brief     Copies a integer value to decimal representive in a character buffer
 *//*-----------------------------------------------------------------------------------*/
-char* utils_IntegerToDecString_chp(uint32_t i, char* pBuffer)
+char* utils_IntegerToDecString_chp(int32_t value_s32, char* buffer_chp)
 {
-    return itoa(i, pBuffer, 10);       // call the library function
+    return itoa(value_s32, buffer_chp, 10);       // call the library function
 }
 
 /**---------------------------------------------------------------------------------------
- * @brief     Copies a integer value to decimal representive in a character buffer
+ * @brief     Copies a RGB color code to a string
 *//*-----------------------------------------------------------------------------------*/
 char* utils_RGBToString_chp(uint8_t red_u8, uint8_t green_u8, uint8_t blue_u8,
                           char* pBuffer_p)
@@ -113,18 +119,21 @@ char* utils_BuildReceiveTopic_chp(const char *dev_p, const char *channel_p,
 *//*-----------------------------------------------------------------------------------*/
 uint16_t utils_CalcLogDigitsFromPercent_u16(uint8_t percent_u8)
 {
-  return(uint16_t) ((1023.0F * log10(max((uint8_t)1U, percent_u8)))
-                      / log10(100.0) + 0.5F);
+    return(0);
+  /*return(uint16_t) ((1023.0F * log10(max((uint8_t)1U, percent_u8)))
+                      / log10(100.0) + 0.5F);*/
 }
 
 /**---------------------------------------------------------------------------------------
  * @brief     This function calculates the logarithm digits value (0-1023) based on the
  *              linear  input percentage (0-100%).
 *//*-----------------------------------------------------------------------------------*/
-uint16_t utils_CalcLogDigitsFromPercent_u16(uint8_t percent_u8, uint16_t maxVal_u16)
+uint16_t utils_CalcLogDigitsFromPercentWMax_u16(uint8_t percent_u8,
+                                                    uint16_t maxVal_u16)
 {
-  return(uint16_t) ((maxVal_u16 * log10(max((uint8_t)1U, percent_u8)))
-                      / log10(100.0) + 0.5F);
+    return(0);
+  /*return(uint16_t) ((maxVal_u16 * log10(max((uint8_t)1U, percent_u8)))
+                      / log10(100.0) + 0.5F);*/
 }
 
 /****************************************************************************************/

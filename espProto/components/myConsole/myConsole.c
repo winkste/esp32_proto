@@ -112,7 +112,7 @@ static SLIST_HEAD(cmd_list_, cmdItem_tag) cmdList_sts;
 static myConsole_config_t config_sts;
 /** temporary buffer used for command line parsing */
 static char *tmpLineBuf_cps;
-const char *TAG = "myConsole";
+//static const char *TAG = "myConsole";
 
 /****************************************************************************************/
 /* Global functions (unlimited visibility) */

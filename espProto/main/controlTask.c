@@ -48,6 +48,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "otaUpdate.h"
 #include "sdkconfig.h"
 #include "../components/udpLog/include/udpLog.h"
+#include "devmgr.h"
 
 /****************************************************************************************/
 /* Local constant defines */
@@ -136,6 +137,7 @@ esp_err_t controlTask_Initialize_st(void)
     otaUpdate_param_t otaParam_st;
 
     mqttdrv_param_t mqttParam_st;
+    devmgr_param_t devMgrParam_st;
 
     /* parameter initialization */
     ESP_ERROR_CHECK(paramif_InitializeParameter_td(&paramHdl_st));
@@ -183,6 +185,10 @@ esp_err_t controlTask_Initialize_st(void)
     memcpy(mqttParam_st.userPwd_u8a, MQTT_PASSWORD, strlen(MQTT_PASSWORD));
     ESP_ERROR_CHECK(mqttdrv_Initialize(&mqttParam_st));
 
+    /* initialize device manager */
+    ESP_ERROR_CHECK(devmgr_InitializeParameter(&devMgrParam_st));
+    ESP_ERROR_CHECK(devmgr_Initialize(&devMgrParam_st));
+    devmgr_GenerateDevices();
 
     /* start the control task */
     xTaskCreate(controlTask_Task_vd, "controlTask", 4096, NULL, 5, NULL);

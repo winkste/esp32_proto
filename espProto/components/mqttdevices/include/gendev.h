@@ -50,8 +50,8 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 typedef struct gendev_param_tag
 {
         mqttif_Publish_td publishHandler_fp;
-        char *deviceName_cchp;
-        uint8_t id_u8c;
+        char *deviceName_chp;
+        char *id_chp;
 }gendev_param_t;
 
 /****************************************************************************************/
