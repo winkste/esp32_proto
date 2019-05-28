@@ -1,10 +1,10 @@
 /*****************************************************************************************
-* FILENAME :        mqttif.h
+* FILENAME :        devmgr.h
 *
 * DESCRIPTION :
-*       Header file for mqtt interface description
+*       Header file for device manager
 *
-* Date: 31. Mar 2019
+* Date: 24. April 2019
 *
 * NOTES :
 *
@@ -28,43 +28,61 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef MQTTIF_H
-#define MQTTIF_H
+#ifndef DEVMGR_H_
+#define DEVMGR_H_
+
 /****************************************************************************************/
 /* Imported header files: */
 
 #include "stdint.h"
 #include "esp_err.h"
 
+#include "stdbool.h"
+
 /****************************************************************************************/
 /* Global constant defines: */
-#define mqttif_MAX_SIZE_OF_TOPIC    256U
-#define mqttif_MAX_SIZE_OF_DATA     256U
 
 /****************************************************************************************/
 /* Global function like macro defines (to be avoided): */
 
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
-typedef struct mqttif_msg_tag
-{
-        uint32_t topicLen_u32;
-        char *topic_chp;
-        uint32_t dataLen_u32;
-        char *data_chp;
-        int32_t msgId_s32;
-        int32_t qos_s32;
-        int32_t retain_s32;
-}mqttif_msg_t;
 
-typedef void (* mqttif_Connected_td)(void);
-typedef void (* mqttif_Disconnected_td)(void);
-typedef esp_err_t (* mqttif_DataReceived_td)(mqttif_msg_t *);
-typedef esp_err_t (* mqttif_Publish_td)(mqttif_msg_t *, uint32_t);
+typedef struct devmgr_param_tag
+{
+}devmgr_param_t;
 
 /****************************************************************************************/
 /* Global function definitions: */
 
+/**---------------------------------------------------------------------------------------
+ * @brief     Initializes the initialization structure of the device manager module
+ * @author    S. Wink
+ * @date      24. Apr. 2019
+ * @param     param_stp         pointer to the configuration structure
+ * @return    n/a
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t devmgr_InitializeParameter(devmgr_param_t *param_stp);
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Initialization of the device manager module
+ * @author    S. Wink
+ * @date      24. Apr. 2019
+ * @param     param_stp         pointer to the configuration structure
+ * @return    n/a
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t devmgr_Initialize(devmgr_param_t *param_stp);
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Starts the devices which are setup per parameter
+ * @author    S. Wink
+ * @date      24. Apr. 2019
+ * @return    n/a
+*//*-----------------------------------------------------------------------------------*/
+extern void devmgr_GenerateDevices(void);
+
 /****************************************************************************************/
 /* Global data definitions: */
+
 #endif
+

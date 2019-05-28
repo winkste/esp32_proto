@@ -102,13 +102,14 @@ extern char* utils_BuildSendTopicWChan_chp(const char *dev_p, const char *channe
  *              custom device.
  * @author    winkste
  * @date      20 Okt. 2017
- * @param     dev_p       pointer to device string
- * @param     topic_p     pointer to topic string
- * @param     buffer_p    pointer to result buffer string
+ * @param     dev_cchp       pointer to device string
+ * @param     channel_cchp   pointer to channel string
+ * @param     topic_cchp     pointer to topic string
+ * @param     buffer_chp    pointer to result buffer string
  * @return    combined topic as char pointer, it uses buffer_p to store the topic
 *//*-----------------------------------------------------------------------------------*/
-extern char* utils_BuildSendTopic_chp(const char *dev_p,
-                                      const char *topic_p, char *buffer_p);
+extern char* utils_BuildSendTopic_chp(const char *dev_cchp, const char *channel_cchp,
+        const char *topic_chp, char *buffer_chp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     This function helps to build the complete topic including the
@@ -123,6 +124,17 @@ extern char* utils_BuildSendTopic_chp(const char *dev_p,
 *//*-----------------------------------------------------------------------------------*/
 extern char* utils_BuildReceiveTopic_chp(const char *dev_p, const char *channel_p,
                                       const char *topic_p, char *buffer_p);
+
+/**---------------------------------------------------------------------------------------
+ * @brief     This function helps to build the complete topic for broadcast
+ *              subscriptions.
+ * @author    winkste
+ * @date      21 May. 2019
+ * @param     topic_p     pointer to topic string
+ * @param     buffer_p    pointer to result buffer string
+ * @return    combined topic as char pointer, it uses buffer_p to store the topic
+*//*-----------------------------------------------------------------------------------*/
+extern char* utils_BuildReceiveTopicBCast_chp(const char *topic_p, char *buffer_p);
 
 /**---------------------------------------------------------------------------------------
  * @brief     This function calculates the logarithm digits value (0-1023) based on the

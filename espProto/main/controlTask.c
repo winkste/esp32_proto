@@ -188,6 +188,7 @@ esp_err_t controlTask_Initialize_st(void)
     /* initialize device manager */
     ESP_ERROR_CHECK(devmgr_InitializeParameter(&devMgrParam_st));
     ESP_ERROR_CHECK(devmgr_Initialize(&devMgrParam_st));
+    ESP_LOGI(TAG, "generate devices...");
     devmgr_GenerateDevices();
 
     /* start the control task */

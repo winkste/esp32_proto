@@ -200,6 +200,7 @@ esp_err_t mqttdrv_Initialize(mqttdrv_param_t *param_stp)
     }
 
     publishSema_sts = xSemaphoreCreateBinary();
+    xSemaphoreGive(publishSema_sts);
     mqttEventGroup_sts = xEventGroupCreate();
 
     /* start the mqtt task */
@@ -246,6 +247,7 @@ mqttdrv_subsHdl_t mqttdrv_AllocSub_xp(mqttdrv_substParam_t *subsParam_stp)
             // initialize the handle data
             memcpy(&handle_xp->param_st, subsParam_stp, sizeof(handle_xp->param_st));
             handle_xp->subscribed_bol = false;
+            handle_xp->next_xp = NULL;
 
             // add the handle to the list, either as first element or at the end
             AddSubsToList_vd(handle_xp);
@@ -331,23 +333,53 @@ esp_err_t mqttdrv_UnSubscribe(mqttdrv_subsHdl_t subsHdl_xp)
 }
 
 /**---------------------------------------------------------------------------------------
+ * @brief     Get the number of all allocated subscriptions in the list
+*//*-----------------------------------------------------------------------------------*/
+uint8_t mqttdrv_GetNumberOfSubscriptions(void)
+{
+    uint8_t counter_u8 = 0U;
+    mqttdrv_subsHdl_t index_xps = list_xps;
+
+    while(NULL != index_xps)
+    {
+        counter_u8++;
+        index_xps = index_xps->next_xp;
+    }
+
+    return(counter_u8);
+}
+
+/**---------------------------------------------------------------------------------------
  * @brief     Un-Subscribe MQTT message
 *//*-----------------------------------------------------------------------------------*/
 esp_err_t mqttdrv_Publish_st(mqttif_msg_t *msg_stp, uint32_t timeOut_u32)
 {
     esp_err_t result_st = ESP_FAIL;
 
-    if(   (NULL != publishSema_sts) && (NULL != msg_stp)
-       && (mqttif_MAX_SIZE_OF_DATA >= msg_stp->dataLen_u32)
+    ESP_LOGI(TAG, "publish request...");
+
+    if(NULL == publishSema_sts)
+        ESP_LOGI(TAG, "publish sema is null");
+    if(NULL == msg_stp)
+            ESP_LOGI(TAG, "publish sema is null");
+    if(mqttif_MAX_SIZE_OF_DATA < msg_stp->dataLen_u32)
+        ESP_LOGI(TAG, "publish msg data length max");
+    if(mqttif_MAX_SIZE_OF_TOPIC < msg_stp->topicLen_u32)
+            ESP_LOGI(TAG, "publish msg topic length max: %d", msg_stp->topicLen_u32);
+
+    if(   (NULL != publishSema_sts)
+       && (NULL != msg_stp)
+       && (mqttif_MAX_SIZE_OF_DATA > msg_stp->dataLen_u32)
        && (mqttif_MAX_SIZE_OF_TOPIC > msg_stp->topicLen_u32))
     {
+        ESP_LOGI(TAG, "publish msg ok...");
         /* See if we can obtain the semaphore.  If the semaphore is not
         available wait to see if it becomes free. */
         if(pdTRUE == xSemaphoreTake(publishSema_sts, ( TickType_t ) timeOut_u32))
         {
             /* We were able to obtain the semaphore and can now access the
             shared resource. */
-
+            ESP_LOGI(TAG, "publish sema obtained...");
             memset(topicVector_sca, 0x00, mqttif_MAX_SIZE_OF_TOPIC);
             memset(dataVector_sca, 0x00, mqttif_MAX_SIZE_OF_TOPIC);
             pubMsg_sts.topic_chp = topicVector_sca;
@@ -357,8 +389,11 @@ esp_err_t mqttdrv_Publish_st(mqttif_msg_t *msg_stp, uint32_t timeOut_u32)
             memcpy(pubMsg_sts.topic_chp, msg_stp->topic_chp, pubMsg_sts.topicLen_u32);
             memcpy(pubMsg_sts.data_chp, msg_stp->data_chp, pubMsg_sts.dataLen_u32);
             pubMsg_sts.msgId_s32 = 0;
+            pubMsg_sts.qos_s32 = msg_stp->qos_s32;
+            pubMsg_sts.retain_s32 = msg_stp->qos_s32;
 
             xEventGroupSetBits(mqttEventGroup_sts, PUBLISH_REQ);
+            result_st = ESP_OK;
         }
         else
         {
@@ -461,34 +496,29 @@ static void HandleConnect_vd(esp_mqtt_event_handle_t event_stp)
        (STATE_CONNECT_IN_PROGRESS == moduleState_ens))
     {
         moduleState_ens = STATE_CONNECTED;
-        ESP_LOGI(TAG, "mqtt connected...");
 
-        // message to control task that MQTT is online
+        // TODO message to control task that MQTT is online
 
-        // call all connect functions of registered users
         mqttdrv_subsHdl_t index_xps = list_xps;
-        if(NULL != index_xps)
+        while(NULL != index_xps)
         {
+            //subscribe users
+            esp_mqtt_client_subscribe(client_xps,
+                    (char *)&index_xps->param_st.topic_u8a[0],
+                    index_xps->param_st.qos_u32);
+            ESP_LOGI(TAG, "subscribed to topic: %s", (char *)&index_xps->param_st.topic_u8a[0]);
+
+            // call all connect functions of registered users
             if(NULL != index_xps->param_st.conn_fp)
             {
                 index_xps->param_st.conn_fp();
             }
-            index_xps = index_xps->next_xp;
-            while(NULL != index_xps)
-            {
-                if(NULL != index_xps->param_st.conn_fp)
-                {
-                    index_xps->param_st.conn_fp();
-                    //subscribe users
-                    esp_mqtt_client_subscribe(client_xps,
-                            (char *)&index_xps->param_st.topic_u8a[0],
-                            index_xps->param_st.qos_u32);
-                }
-                index_xps = index_xps->next_xp;
-            }
-        }
 
-        /*result_st = esp_mqtt_client_subscribe(client_xps, "/topic/qos0", 0);
+            index_xps = index_xps->next_xp;
+
+        }
+/*
+        result_st = esp_mqtt_client_subscribe(client_xps, "/topic/qos0", 0);
         ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", result_st);
 
         result_st = esp_mqtt_client_subscribe(client_xps, "std/dev21/s/temp_hum/temp", 0);
@@ -617,38 +647,33 @@ static void HandleData_vd(esp_mqtt_event_handle_t event_stp)
     mqttif_msg_t msg_st;
     esp_err_t result_st;
 
-    ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-    printf("TOPIC=%.*s\r\n", event_stp->topic_len, event_stp->topic);
-    printf("DATA=%.*s\r\n", event_stp->data_len, event_stp->data);
-
-    result_st = esp_mqtt_client_publish(client_xps, "std/dev99/r/light_one/toggle", "", 0, 0, 0);
-    ESP_LOGI(TAG, "sent publish successful, msg_id=%d", result_st);
-
-
     msg_st.topic_chp = event_stp->topic;
     msg_st.topicLen_u32 = event_stp->topic_len;
     msg_st.dataLen_u32 = event_stp->data_len;
     msg_st.data_chp = event_stp->data;
 
+    ESP_LOGI(TAG, "topic=%.*s, length: %d", msg_st.topicLen_u32, msg_st.topic_chp, msg_st.topicLen_u32);
+    ESP_LOGI(TAG, "data=%.*s, length: %d", msg_st.dataLen_u32, msg_st.data_chp, msg_st.dataLen_u32);
+
+    //result_st = esp_mqtt_client_publish(client_xps, "std/dev99/r/light_one/toggle", "", 0, 0, 0);
+    //ESP_LOGI(TAG, "sent publish successful, msg_id=%d", result_st);
+
     if(NULL != index_xps)
     {
-        if(0U == strncmp(event_stp->topic,
-                         (char *)&index_xps->param_st.topic_u8a[0],
-                         event_stp->topic_len))
-        {
-            if(NULL != index_xps->param_st.dataRecv_fp)
-            {
-                index_xps->param_st.dataRecv_fp(&msg_st);
-            }
-        }
-        index_xps = index_xps->next_xp;
         while(NULL != index_xps)
         {
             if(0U == strncmp(event_stp->topic,
                              (char *)&index_xps->param_st.topic_u8a[0],
                              event_stp->topic_len))
             {
-                index_xps->param_st.dataRecv_fp(&msg_st);
+                if(NULL !=  index_xps->param_st.dataRecv_fp)
+                {
+                    index_xps->param_st.dataRecv_fp(&msg_st);
+                }
+                else
+                {
+                    ESP_LOGI(TAG, "subscription received without callback function");
+                }
             }
             index_xps = index_xps->next_xp;
         }
@@ -745,27 +770,35 @@ static esp_err_t MqttEventHandler_st(esp_mqtt_event_handle_t event_stp)
     switch (event_stp->event_id)
     {
         case MQTT_EVENT_CONNECTED:
+            ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
             HandleConnect_vd(event_stp);
             break;
         case MQTT_EVENT_DISCONNECTED:
+            ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
             HandleDisconnect_vd(event_stp);
             break;
         case MQTT_EVENT_SUBSCRIBED:
-            HandleSubscription_vd(event_stp);
+            ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED");
+            //HandleSubscription_vd(event_stp);
             break;
         case MQTT_EVENT_UNSUBSCRIBED:
+            ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED");
             HandleUnsubscription_vd(event_stp);
             break;
         case MQTT_EVENT_PUBLISHED:
+            ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED");
             HandlePublish_vd(event_stp);
             break;
         case MQTT_EVENT_DATA:
+            ESP_LOGI(TAG, "MQTT_EVENT_DATA");
             HandleData_vd(event_stp);
             break;
         case MQTT_EVENT_ERROR:
+            ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
             HandleError_vd(event_stp);
             break;
         default:
+            ESP_LOGI(TAG, "default");
             HandleError_vd(event_stp);
             break;
     }
@@ -799,11 +832,21 @@ static void Task_vd(void *pvParameters)
         }
         if(0 != (uxBits_st & PUBLISH_REQ))
         {
+            ESP_LOGI(TAG, "publish start...");
             pubMsg_sts.msgId_s32 = esp_mqtt_client_publish(client_xps,
                                                             pubMsg_sts.topic_chp,
                                                             pubMsg_sts.data_chp,
-                                                            0, 0, 0);
-            ESP_LOGI(TAG, "called mqtt client to publish, msg_id=%d", pubMsg_sts.msgId_s32);
+                                                            pubMsg_sts.dataLen_u32,
+                                                            pubMsg_sts.qos_s32,
+                                                            pubMsg_sts.retain_s32);
+            //pubMsg_sts.msgId_s32 = esp_mqtt_client_publish(client_xps, "std/dev99/r/light_one/test", "ON", 0, 1, 0);
+            ESP_LOGI(TAG, "called mqtt client to publish, msg_id=%d, topic:%s", pubMsg_sts.msgId_s32, pubMsg_sts.topic_chp);
+            if(0 == pubMsg_sts.qos_s32)
+            {
+                // we don't need a message send confirmation
+                xSemaphoreGive(publishSema_sts);
+            }
+
         }
         if(0 != (uxBits_st & MQTT_ERR))
         {

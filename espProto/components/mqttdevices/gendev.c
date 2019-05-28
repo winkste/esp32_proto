@@ -50,14 +50,14 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Local constant defines */
 
-#define MQTT_PUB_FW_IDENT         "/s/gen/fwident" //firmware identification
+#define MQTT_PUB_FW_IDENT         "gen/fwident" //firmware identification
 #define MQTT_PUB_FW_VERSION       "/s/gen/fwversion" //firmware version
 #define MQTT_PUB_FW_DESC          "/s/gen/desc" //firmware description
 #define MQTT_PUB_DEV_ROOM         "/s/gen/room" //firmware room
 #define MQTT_PUB_CAP              "/s/gen/cap"  // send capability
 #define MQTT_PUB_TRACE            "/s/gen/trac" // send trace channel
-#define MQTT_SUB_COMMAND          "/r/gen/cmd" // command message for generic read commands
-#define MQTT_SUB_BCAST            "bcast/r/gen/cmd" // broadcast command message
+#define MQTT_SUB_COMMAND          "gen/cmd" // command message for generic read commands
+#define MQTT_SUB_BCAST            "gen/cmd" // broadcast command message
 #define MQTT_CLIENT               MQTT_DEFAULT_DEVICE // just a name used to talk to MQTT broker
 #define MQTT_PAYLOAD_CMD_INFO     "INFO"
 #define MQTT_SUBSCRIPTIONS_NUM    2U
@@ -89,6 +89,7 @@ typedef struct objdata_tag
 {
     gendev_param_t param_st;
     objState_t state_en;
+    mqttif_msg_t pubMsg_st;
 }objdata_t;
 
 /****************************************************************************************/
@@ -137,14 +138,14 @@ esp_err_t gendev_InitializeParameter_st(gendev_param_t *param_stp)
 
     singleton_sts.state_en = STATE_NOT_INITIALIZED;
     singleton_sts.param_st.deviceName_chp = "dev99";
-    singleton_sts.param_st.id_chp = 0U;
+    singleton_sts.param_st.id_chp = "chan0";
     singleton_sts.param_st.publishHandler_fp = NULL;
 
     if(NULL != param_stp)
     {
         param_stp->publishHandler_fp = NULL;
         param_stp->deviceName_chp = "dev99";
-        param_stp->id_chp = "0";
+        param_stp->id_chp = "chan0";
 
         result_st = ESP_OK;
     }
@@ -164,22 +165,35 @@ esp_err_t gendev_Initialize_st(gendev_param_t *param_stp)
         singleton_sts.param_st.deviceName_chp = param_stp->deviceName_chp;
         singleton_sts.param_st.id_chp = param_stp->id_chp;
         singleton_sts.param_st.publishHandler_fp = param_stp->publishHandler_fp;
+        singleton_sts.pubMsg_st.dataLen_u32 = 0;
+        singleton_sts.pubMsg_st.topicLen_u32 = 0;
+        singleton_sts.pubMsg_st.topic_chp = malloc(mqttif_MAX_SIZE_OF_TOPIC * sizeof(char));
+        singleton_sts.pubMsg_st.data_chp = malloc(mqttif_MAX_SIZE_OF_DATA * sizeof(char));
+        singleton_sts.pubMsg_st.qos_s32 = 0;
+        singleton_sts.pubMsg_st.retain_s32 = 0;
 
+        memset(&subscriptions_chsap[0][0], 0U, sizeof(subscriptions_chsap));
         /* create subscription topics */
-        for(uint8_t idx_u8 = 0U; idx_u8 < MQTT_SUBSCRIPTIONS_NUM; idx_u8++)
-        {
-            utils_BuildReceiveTopic_chp(singleton_sts.param_st.deviceName_chp,
-                                        singleton_sts.param_st.id_chp,
-                                        subscriptions_cchsap[idx_u8],
-                                        &subscriptions_chsap[idx_u8][0]);
-            subsCounter_u8s++;
-        }
+        utils_BuildReceiveTopic_chp(singleton_sts.param_st.deviceName_chp,
+                                                singleton_sts.param_st.id_chp,
+                                                subscriptions_cchsap[0],
+                                                &subscriptions_chsap[0][0]);
+                    ESP_LOGI(TAG, "this is the generated subscription: %s",
+                                    &subscriptions_chsap[0][0]);
+                    subsCounter_u8s++;
+
+        utils_BuildReceiveTopicBCast_chp(subscriptions_cchsap[1],
+                                                &subscriptions_chsap[1][0]);
+                    ESP_LOGI(TAG, "this is the generated subscription: %s",
+                                    &subscriptions_chsap[1][0]);
+                    subsCounter_u8s++;
 
         singleton_sts.state_en = STATE_INITIALIZED;
 
         result_st = ESP_OK;
     }
 
+    gendevEventGroup_sts = xEventGroupCreate();
     cycleTimer_sts = xTimerCreate("Timer", pdMS_TO_TICKS(10000), true, (void *) 0,
                                      TimerCallback_vd);
 
@@ -278,56 +292,77 @@ static void OnDisconnectionHandler_vd(void)
 static esp_err_t OnDataReceivedHandler_st(mqttif_msg_t *msg_stp)
 {
     esp_err_t result_st = ESP_OK;
-    mqttif_msg_t msg_st;
     char msgData_ca[50];
 
-    ESP_LOGI(TAG, "message topic:%s received with data:%s",
-                    msg_stp->topic_chp, msg_stp->data_chp);
+    ESP_LOGI(TAG, "message topic:%.*s received with data:%.*s",
+            msg_stp->topicLen_u32, msg_stp->topic_chp,
+            msg_stp->dataLen_u32, msg_stp->data_chp);
     xEventGroupSetBits(gendevEventGroup_sts, MQTT_DATA);
 
-    if(0U == strcmp(msg_stp->topic_chp, &subscriptions_chsap[0][0]))
+    if(   (0U == strncmp(msg_stp->topic_chp, &subscriptions_chsap[0][0],
+                        msg_stp->topicLen_u32))
+       || (0U == strncmp(msg_stp->topic_chp, &subscriptions_chsap[1][0],
+               msg_stp->topicLen_u32)))
     {
-        if(0U == strcmp(msg_stp->data_chp, MQTT_PAYLOAD_CMD_INFO))
+        if(   (0U != msg_stp->dataLen_u32)
+           && (0U == strncmp(msg_stp->data_chp, MQTT_PAYLOAD_CMD_INFO,
+                   msg_stp->dataLen_u32)))
         {
-            msg_st.data_chp = &msgData_ca[0];
+            singleton_sts.pubMsg_st.data_chp = &msgData_ca[0];
 
             if(ESP_OK == result_st)
             {
                 // send the firmware identifier
-                msg_st.topic_chp = MQTT_PUB_FW_IDENT;
-                msg_st.dataLen_u32 = sprintf(msg_st.data_chp, "Firmware PN: %s",
+                utils_BuildSendTopic_chp(
+                        singleton_sts.param_st.deviceName_chp,
+                        singleton_sts.param_st.id_chp,
+                        MQTT_PUB_FW_IDENT,
+                        singleton_sts.pubMsg_st.topic_chp);
+                ESP_LOGI(TAG, "%s", singleton_sts.pubMsg_st.topic_chp);
+                singleton_sts.pubMsg_st.topicLen_u32 = strlen(singleton_sts.pubMsg_st.topic_chp);
+                singleton_sts.pubMsg_st.dataLen_u32 = sprintf(singleton_sts.pubMsg_st.data_chp, "Firmware PN: %s",
                                                 myVersion_GetFwIdentifier_cch());
-                result_st = singleton_sts.param_st.publishHandler_fp(&msg_st,
+                result_st = singleton_sts.param_st.publishHandler_fp(&singleton_sts.pubMsg_st,
                                                                         MAX_PUB_WAIT);
-            }
+            }/*
             if(ESP_OK == result_st)
             {
                 // send the firmware version
-                msg_st.topic_chp = MQTT_PUB_FW_VERSION;
-                msg_st.dataLen_u32 = sprintf(msg_st.data_chp, "Firmware Version: %s",
+                singleton_sts.pubMsg_st.topic_chp =
+                        utils_BuildSendTopic_chp(singleton_sts.param_st.deviceName_chp,
+                                                 singleton_sts.param_st.id_chp,
+                                                 MQTT_PUB_FW_VERSION,
+                                                 singleton_sts.pubMsg_st.topic_chp);
+                singleton_sts.pubMsg_st.topicLen_u32 = sizeof(MQTT_PUB_FW_VERSION);
+                singleton_sts.pubMsg_st.dataLen_u32 = sprintf(singleton_sts.pubMsg_st.data_chp, "Firmware Version: %s",
                                                 myVersion_GetFwVersion_cch());
-                result_st = singleton_sts.param_st.publishHandler_fp(&msg_st,
+                result_st = singleton_sts.param_st.publishHandler_fp(&singleton_sts.pubMsg_st,
                                                                         MAX_PUB_WAIT);
             }
 
             if(ESP_OK == result_st)
             {
                 // send the firmware version
-                msg_st.topic_chp = MQTT_PUB_FW_DESC;
-                msg_st.dataLen_u32 = sprintf(msg_st.data_chp, "Firmware Description: %s",
+                singleton_sts.pubMsg_st.topic_chp =
+                        utils_BuildSendTopic_chp(singleton_sts.param_st.deviceName_chp,
+                                                 singleton_sts.param_st.id_chp,
+                                                 MQTT_PUB_FW_DESC,
+                                                 singleton_sts.pubMsg_st.topic_chp);
+                singleton_sts.pubMsg_st.topicLen_u32 = sizeof(MQTT_PUB_FW_DESC);
+                singleton_sts.pubMsg_st.dataLen_u32 = sprintf(singleton_sts.pubMsg_st.data_chp, "Firmware Description: %s",
                                                 myVersion_GetFwDescription_cch());
-                result_st = singleton_sts.param_st.publishHandler_fp(&msg_st, MAX_PUB_WAIT);
-            }
+                result_st = singleton_sts.param_st.publishHandler_fp(&singleton_sts.pubMsg_st, MAX_PUB_WAIT);
+            }*/
         }
         else
         {
-            ESP_LOGW(TAG, "unexpected data %s", msg_stp->data_chp);
+            ESP_LOGW(TAG, "unexpected data %.*s", msg_stp->dataLen_u32, msg_stp->data_chp);
             result_st = ESP_FAIL;
         }
     }
     else
     {
-        ESP_LOGW(TAG, "unexpected topic %s", msg_stp->topic_chp);
+        ESP_LOGW(TAG, "unexpected topic %.*s", msg_stp->topicLen_u32, msg_stp->topic_chp);
         result_st = ESP_FAIL;
     }
 
@@ -357,7 +392,7 @@ static void Task_vd(void *pvParameters)
     EventBits_t uxBits_st;
     uint32_t bits_u32 = MQTT_CON | MQTT_DISCON | CYCLE_TIMER | MOD_ERROR | MQTT_DATA;
 
-    ESP_LOGI(TAG, "mqttTask started...");
+    ESP_LOGI(TAG, "gendevtask started...");
     while(1)
     {
         uxBits_st = xEventGroupWaitBits(gendevEventGroup_sts, bits_u32,
@@ -365,7 +400,7 @@ static void Task_vd(void *pvParameters)
 
         if(0 != (uxBits_st & MQTT_CON))
         {
-            ESP_LOGI(TAG, "mqtt connected");
+            ESP_LOGI(TAG, "mqtt connected and topic subscribed");
         }
         if(0 != (uxBits_st & MQTT_DISCON))
         {

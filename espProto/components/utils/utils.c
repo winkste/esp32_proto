@@ -95,11 +95,18 @@ char* utils_BuildSendTopicWChan_chp(const char *dev_p, const char *channel_p,
  * @brief     This function helps to build the complete topic including the
  *              custom device.
 *//*-----------------------------------------------------------------------------------*/
-char* utils_BuildSendTopic_chp(const char *dev_p,
-                                      const char *topic_p, char *buffer_p)
+char* utils_BuildSendTopic_chp(const char *dev_cchp, const char *channel_cchp,
+                                      const char *topic_chp, char *buffer_chp)
 {
-  sprintf(buffer_p, "std/%s/%s", dev_p, topic_p);
-  return buffer_p;
+    if(NULL != channel_cchp)
+    {
+        sprintf(buffer_chp, "std/%s/s/%s/%s", dev_cchp, channel_cchp, topic_chp);
+    }
+    else
+    {
+        sprintf(buffer_chp, "std/%s/s/%s", dev_cchp, topic_chp);
+    }
+  return dev_cchp;
 }
 
 /**---------------------------------------------------------------------------------------
@@ -110,6 +117,16 @@ char* utils_BuildReceiveTopic_chp(const char *dev_p, const char *channel_p,
                                       const char *topic_p, char *buffer_p)
 {
   sprintf(buffer_p, "std/%s/r/%s/%s", dev_p, channel_p, topic_p);
+  return buffer_p;
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     This function helps to build the complete topic for broadcast
+ *              subscriptions.
+*//*-----------------------------------------------------------------------------------*/
+char* utils_BuildReceiveTopicBCast_chp(const char *topic_p, char *buffer_p)
+{
+  sprintf(buffer_p, "std/bcast/r/%s", topic_p);
   return buffer_p;
 }
 

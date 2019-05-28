@@ -144,6 +144,14 @@ extern esp_err_t mqttdrv_Subscribe_xp(mqttdrv_subsHdl_t subsHdl_xp);
 extern esp_err_t mqttdrv_UnSubscribe(mqttdrv_subsHdl_t subsHdl_xp);
 
 /**---------------------------------------------------------------------------------------
+ * @brief     Get the number of all allocated subscriptions in the list
+ * @author    S. Wink
+ * @date      20. May. 2019
+ * @return    number of subscriptions
+*//*-----------------------------------------------------------------------------------*/
+extern uint8_t mqttdrv_GetNumberOfSubscriptions(void);
+
+/**---------------------------------------------------------------------------------------
  * @brief     Un-Subscribe MQTT message
  * @author    S. Wink
  * @date      25. Mar. 2019
