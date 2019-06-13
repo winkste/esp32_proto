@@ -68,7 +68,7 @@ typedef struct mqttdrv_substParam_tag
     mqttif_DataReceived_td dataRecv_fp;
 }mqttdrv_substParam_t;
 
-typedef struct mqttdrv_obj_tag* mqttdrv_subsHdl_t;
+typedef struct mqttdrv_subsObj_tag* mqttdrv_subsHdl_t;
 /****************************************************************************************/
 /* Global function definitions: */
 

@@ -70,13 +70,20 @@ typedef enum moduleState_tag
      STATE_DISCONNECTED
 }moduleState_t;
 
-typedef struct mqttdrv_obj_tag
+typedef struct mqttdrv_subsObj_tag
 {
      mqttdrv_substParam_t param_st;
      bool subscribed_bol;
      mqttdrv_subsHdl_t next_xp;
      mqttdrv_subsHdl_t last_xp;
-}mqttdrv_obj_t;
+}mqttdrv_subsObj_t;
+
+typedef struct objData_tag
+{
+     moduleState_t state_en;
+     esp_mqtt_client_handle_t client_xp;
+     mqttdrv_subsHdl_t subst_xp;
+}objData_t;
 
 /****************************************************************************************/
 /* Local functions prototypes: */
@@ -101,14 +108,22 @@ static void Task_vd(void *pvParameters);
 /* Local variables: */
 
 static const char *TAG = "mqttdrv";
-static moduleState_t moduleState_ens = STATE_NOT_INITIALIZED;
-static esp_mqtt_client_handle_t client_xps = NULL;
-static mqttdrv_subsHdl_t list_xps;
 
 static const int START_MQTT    = BIT0;
 static const int STOP_MQTT     = BIT1;
 static const int PUBLISH_REQ   = BIT2;
 static const int MQTT_ERR      = BIT3;
+
+static objData_t singleton_sst =
+{
+        .state_en = STATE_NOT_INITIALIZED,
+        .client_xp = NULL,
+        .subst_xp = NULL,
+};
+
+//static moduleState_t moduleState_ens = STATE_NOT_INITIALIZED;
+//static esp_mqtt_client_handle_t client_xps = NULL;
+//static mqttdrv_subsHdl_t list_xps;
 
 static EventGroupHandle_t mqttEventGroup_sts;
 
@@ -142,39 +157,36 @@ esp_err_t mqttdrv_Initialize(mqttdrv_param_t *param_stp)
 
     ESP_LOGI(TAG, "initialize mqtt...");
 
-    if(     (STATE_DISCONNECTED == moduleState_ens)
-         || (STATE_NOT_INITIALIZED == moduleState_ens))
+    if(     (STATE_DISCONNECTED == singleton_sst.state_en)
+         || (STATE_NOT_INITIALIZED == singleton_sst.state_en))
     {
         if(NULL != param_stp)
         {
+            /* reset the mqtt configuration structure to 0 first,
+             * or it will generate crashes
+             */
+            memset(&mqttCfg_st, 0, sizeof(mqttCfg_st));
             mqttCfg_st.host = (char *)&param_stp->host_u8a[0];
             mqttCfg_st.port = param_stp->port_u32;
             mqttCfg_st.username = (char *)&param_stp->userName_u8a[0];
             mqttCfg_st.password = (char *)&param_stp->userPwd_u8a[0];
             mqttCfg_st.event_handle = MqttEventHandler_st;
-            ESP_LOGI(TAG, "connect to %s, port:%d",mqttCfg_st.host, mqttCfg_st.port);
-            ESP_LOGI(TAG, "usr:%s, pwd:%s", mqttCfg_st.username, mqttCfg_st.password);
-            if(NULL != client_xps)
+
+            // cleanup the client before initialize to ensure old conncetions are closed
+            if(NULL != singleton_sst.client_xp)
             {
-                (void)esp_mqtt_client_destroy(client_xps);
+                (void)esp_mqtt_client_destroy(singleton_sst.client_xp);
             }
 
             ESP_LOGI(TAG, "mqtt client try to init...");
-            //client_xps = esp_mqtt_client_init(&mqttCfg_st);
-            const esp_mqtt_client_config_t mqtt_cfg = {
-                    //.uri = "mqtt://iot.eclipse.org",
-                    .host = mqttCfg_st.host,//"192.168.178.45",
-                    .port = mqttCfg_st.port, //1883,
-                    .username = mqttCfg_st.username, //"winkste",
-                    .password = mqttCfg_st.password,//"sw10950",
-                    .event_handle = MqttEventHandler_st,
-                    // .user_context = (void *)your_context
-                };
-            client_xps = esp_mqtt_client_init(&mqtt_cfg);
-            if(NULL != client_xps)
+
+            ESP_LOGI(TAG, "connect to %s, port:%d",mqttCfg_st.host, mqttCfg_st.port);
+            ESP_LOGI(TAG, "usr:%s, pwd:%s", mqttCfg_st.username, mqttCfg_st.password);
+            singleton_sst.client_xp = esp_mqtt_client_init(&mqttCfg_st);
+            if(NULL != singleton_sst.client_xp)
             {
                 result_st = ESP_OK;
-                moduleState_ens = STATE_INITIALIZED;
+                singleton_sst.state_en = STATE_INITIALIZED;
                 ESP_LOGI(TAG, "mqtt client initialized...");
             }
             else
@@ -200,11 +212,23 @@ esp_err_t mqttdrv_Initialize(mqttdrv_param_t *param_stp)
     }
 
     publishSema_sts = xSemaphoreCreateBinary();
-    xSemaphoreGive(publishSema_sts);
+    if(NULL == publishSema_sts)
+    {
+        result_st = ESP_FAIL;
+    }
+    else
+    {
+        xSemaphoreGive(publishSema_sts);
+    }
+
     mqttEventGroup_sts = xEventGroupCreate();
+    if(NULL == mqttEventGroup_sts)
+    {
+        result_st = ESP_FAIL;
+    }
 
     /* start the mqtt task */
-    xTaskCreate(Task_vd, "mqttTask", 4096, NULL, 5, NULL);
+    xTaskCreate(Task_vd, "mqttTask", 4096, NULL, 4, NULL);
 
     return(result_st);
 }
@@ -214,7 +238,7 @@ esp_err_t mqttdrv_Initialize(mqttdrv_param_t *param_stp)
 *//*-----------------------------------------------------------------------------------*/
 void mqttdrv_StartMqttDemon(void)
 {
-    if(STATE_INITIALIZED == moduleState_ens)
+    if(STATE_INITIALIZED == singleton_sst.state_en)
     {
         xEventGroupSetBits(mqttEventGroup_sts, START_MQTT);
     }
@@ -225,7 +249,7 @@ void mqttdrv_StartMqttDemon(void)
 *//*-----------------------------------------------------------------------------------*/
 esp_err_t mqttdrv_InitSubParam(mqttdrv_substParam_t *subsParam_stp)
 {
-    esp_err_t result_st = ESP_FAIL;
+    esp_err_t result_st = ESP_OK;
 
     memset(subsParam_stp, 0U, sizeof(mqttdrv_substParam_t));
 
@@ -241,7 +265,7 @@ mqttdrv_subsHdl_t mqttdrv_AllocSub_xp(mqttdrv_substParam_t *subsParam_stp)
 
     if(NULL != subsParam_stp)
     {
-        handle_xp = malloc(sizeof(mqttdrv_obj_t));
+        handle_xp = malloc(sizeof(mqttdrv_subsObj_t));
         if(NULL != handle_xp)
         {
             // initialize the handle data
@@ -292,9 +316,9 @@ esp_err_t mqttdrv_Subscribe_xp(mqttdrv_subsHdl_t subsHdl_xp)
 
     if(NULL != subsHdl_xp)
     {
-        result_st = esp_mqtt_client_subscribe(client_xps,
-                                                (char *)&subsHdl_xp->param_st.topic_u8a[0],
-                                                subsHdl_xp->param_st.qos_u32);
+        result_st = esp_mqtt_client_subscribe(singleton_sst.client_xp,
+                                              (char *)&subsHdl_xp->param_st.topic_u8a[0],
+                                              subsHdl_xp->param_st.qos_u32);
         if(ESP_OK == result_st)
         {
             ESP_LOGI(TAG, "subscribed to topic: %s", (char *)&subsHdl_xp->param_st.topic_u8a[0]);
@@ -317,7 +341,7 @@ esp_err_t mqttdrv_UnSubscribe(mqttdrv_subsHdl_t subsHdl_xp)
 
     if(NULL != subsHdl_xp)
     {
-        result_st = esp_mqtt_client_unsubscribe(client_xps,
+        result_st = esp_mqtt_client_unsubscribe(singleton_sst.client_xp,
                                              (char *)&subsHdl_xp->param_st.topic_u8a[0]);
         if(ESP_OK == result_st)
         {
@@ -338,7 +362,7 @@ esp_err_t mqttdrv_UnSubscribe(mqttdrv_subsHdl_t subsHdl_xp)
 uint8_t mqttdrv_GetNumberOfSubscriptions(void)
 {
     uint8_t counter_u8 = 0U;
-    mqttdrv_subsHdl_t index_xps = list_xps;
+    mqttdrv_subsHdl_t index_xps = singleton_sst.subst_xp;
 
     while(NULL != index_xps)
     {
@@ -361,7 +385,7 @@ esp_err_t mqttdrv_Publish_st(mqttif_msg_t *msg_stp, uint32_t timeOut_u32)
     if(NULL == publishSema_sts)
         ESP_LOGI(TAG, "publish sema is null");
     if(NULL == msg_stp)
-            ESP_LOGI(TAG, "publish sema is null");
+            ESP_LOGI(TAG, "publish msg is null");
     if(mqttif_MAX_SIZE_OF_DATA < msg_stp->dataLen_u32)
         ESP_LOGI(TAG, "publish msg data length max");
     if(mqttif_MAX_SIZE_OF_TOPIC < msg_stp->topicLen_u32)
@@ -416,7 +440,7 @@ static bool IsListEmpty_bol(void)
 {
     bool retVal_bol = false;
 
-    if(NULL == list_xps)
+    if(NULL == singleton_sst.subst_xp)
     {
         retVal_bol = true;
     }
@@ -433,14 +457,14 @@ static bool IsListEmpty_bol(void)
 *//*------------------------------------------------------------------------------------*/
 static void AddSubsToList_vd(mqttdrv_subsHdl_t subsHdl_xp)
 {
-    if(NULL == list_xps)
+    if(NULL == singleton_sst.subst_xp)
     {
-        list_xps = subsHdl_xp;
-        list_xps->next_xp = NULL;
+        singleton_sst.subst_xp = subsHdl_xp;
+        singleton_sst.subst_xp->next_xp = NULL;
     }
     else
     {
-        mqttdrv_subsHdl_t current_xp = list_xps;
+        mqttdrv_subsHdl_t current_xp = singleton_sst.subst_xp;
         while(NULL != current_xp->next_xp)
         {
             current_xp = current_xp->next_xp;
@@ -461,10 +485,10 @@ static void RemoveSubsFromList_vd(mqttdrv_subsHdl_t subsHdl_xp)
     mqttdrv_subsHdl_t last_xp = NULL;
     mqttdrv_subsHdl_t current_xp;
 
-    if((NULL != subsHdl_xp) && (NULL != list_xps))
+    if((NULL != subsHdl_xp) && (NULL != singleton_sst.subst_xp))
     {
-        last_xp = list_xps;
-        current_xp = list_xps->next_xp;
+        last_xp = singleton_sst.subst_xp;
+        current_xp = singleton_sst.subst_xp->next_xp;
 
         while(NULL != current_xp)
         {
@@ -492,21 +516,22 @@ static void HandleConnect_vd(esp_mqtt_event_handle_t event_stp)
 {
     esp_err_t result_st = ESP_FAIL;
 
-    if((STATE_DISCONNECTED == moduleState_ens) ||
-       (STATE_CONNECT_IN_PROGRESS == moduleState_ens))
+    if((STATE_DISCONNECTED == singleton_sst.state_en) ||
+       (STATE_CONNECT_IN_PROGRESS == singleton_sst.state_en))
     {
-        moduleState_ens = STATE_CONNECTED;
+        singleton_sst.state_en = STATE_CONNECTED;
 
         // TODO message to control task that MQTT is online
 
-        mqttdrv_subsHdl_t index_xps = list_xps;
+        mqttdrv_subsHdl_t index_xps = singleton_sst.subst_xp;
         while(NULL != index_xps)
         {
             //subscribe users
-            esp_mqtt_client_subscribe(client_xps,
+            result_st = esp_mqtt_client_subscribe(singleton_sst.client_xp,
                     (char *)&index_xps->param_st.topic_u8a[0],
                     index_xps->param_st.qos_u32);
-            ESP_LOGI(TAG, "subscribed to topic: %s", (char *)&index_xps->param_st.topic_u8a[0]);
+            ESP_LOGI(TAG, "subscribed to topic: %s, result:%d",
+                    (char *)&index_xps->param_st.topic_u8a[0], result_st);
 
             // call all connect functions of registered users
             if(NULL != index_xps->param_st.conn_fp)
@@ -517,18 +542,6 @@ static void HandleConnect_vd(esp_mqtt_event_handle_t event_stp)
             index_xps = index_xps->next_xp;
 
         }
-/*
-        result_st = esp_mqtt_client_subscribe(client_xps, "/topic/qos0", 0);
-        ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", result_st);
-
-        result_st = esp_mqtt_client_subscribe(client_xps, "std/dev21/s/temp_hum/temp", 0);
-        ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", result_st);
-
-        result_st = esp_mqtt_client_subscribe(client_xps, "/topic/qos1", 1);
-        ESP_LOGI(TAG, "sent subscribe successful, msg_id=%d", result_st);
-
-        result_st = esp_mqtt_client_unsubscribe(client_xps, "/topic/qos1");
-        ESP_LOGI(TAG, "sent unsubscribe successful, msg_id=%d", result_st);*/
     }
     else
     {
@@ -546,32 +559,27 @@ static void HandleConnect_vd(esp_mqtt_event_handle_t event_stp)
 *//*------------------------------------------------------------------------------------*/
 static void HandleDisconnect_vd(esp_mqtt_event_handle_t event_stp)
 {
-    if((STATE_CONNECTED == moduleState_ens) ||
-       (STATE_INITIALIZED == moduleState_ens))
+    if((STATE_CONNECTED == singleton_sst.state_en) ||
+       (STATE_INITIALIZED == singleton_sst.state_en))
     {
-        moduleState_ens = STATE_DISCONNECTED;
+        singleton_sst.state_en = STATE_DISCONNECTED;
         ESP_LOGI(TAG, "mqtt disconnected...");
 
-        // message to control task that MQTT is offline
+        // TODO: message to control task that MQTT is offline
 
         // call all registered callback functions for disconnection event
-        // call all connect functions of registered users
-        mqttdrv_subsHdl_t index_xps = list_xps;
-        if(NULL != index_xps)
+        mqttdrv_subsHdl_t index_xps = singleton_sst.subst_xp;
+
+        while(NULL != index_xps)
         {
             if(NULL != index_xps->param_st.discon_fp)
             {
                 index_xps->param_st.discon_fp();
             }
             index_xps = index_xps->next_xp;
-            while(NULL != index_xps)
-            {
-                index_xps->param_st.discon_fp();
-                index_xps = index_xps->next_xp;
-            }
         }
     }
-    else if(STATE_NOT_INITIALIZED == moduleState_ens)
+    else if(STATE_NOT_INITIALIZED == singleton_sst.state_en)
     {
         ESP_LOGW(TAG, "disconnection before initialization...");
     }
@@ -590,12 +598,7 @@ static void HandleDisconnect_vd(esp_mqtt_event_handle_t event_stp)
 *//*------------------------------------------------------------------------------------*/
 static void HandleSubscription_vd(esp_mqtt_event_handle_t event_stp)
 {
-    //esp_err_t result_st = ESP_FAIL;
-
-    ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d, topic=%s", event_stp->msg_id,
-                                                                event_stp->topic);
-//    result_st = esp_mqtt_client_publish(client_xps, "/topic/qos0", "data", 0, 0, 0);
-//    ESP_LOGI(TAG, "sent publish successful, msg_id=%d", result_st);
+    ESP_LOGI(TAG, "handle subscription event, msg_id=%d", event_stp->msg_id);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -631,6 +634,7 @@ static void HandlePublish_vd(esp_mqtt_event_handle_t event_stp)
 
     /* We have finished accessing the shared resource.  Release the
     semaphore. */
+    ESP_LOGI(TAG, "sema released");
     xSemaphoreGive(publishSema_sts);
 }
 
@@ -643,9 +647,8 @@ static void HandlePublish_vd(esp_mqtt_event_handle_t event_stp)
 *//*------------------------------------------------------------------------------------*/
 static void HandleData_vd(esp_mqtt_event_handle_t event_stp)
 {
-    mqttdrv_subsHdl_t index_xps = list_xps;
+    mqttdrv_subsHdl_t index_xps = singleton_sst.subst_xp;
     mqttif_msg_t msg_st;
-    esp_err_t result_st;
 
     msg_st.topic_chp = event_stp->topic;
     msg_st.topicLen_u32 = event_stp->topic_len;
@@ -654,9 +657,6 @@ static void HandleData_vd(esp_mqtt_event_handle_t event_stp)
 
     ESP_LOGI(TAG, "topic=%.*s, length: %d", msg_st.topicLen_u32, msg_st.topic_chp, msg_st.topicLen_u32);
     ESP_LOGI(TAG, "data=%.*s, length: %d", msg_st.dataLen_u32, msg_st.data_chp, msg_st.dataLen_u32);
-
-    //result_st = esp_mqtt_client_publish(client_xps, "std/dev99/r/light_one/toggle", "", 0, 0, 0);
-    //ESP_LOGI(TAG, "sent publish successful, msg_id=%d", result_st);
 
     if(NULL != index_xps)
     {
@@ -691,7 +691,7 @@ static void HandleError_vd(esp_mqtt_event_handle_t event_stp)
 {
     ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
 
-    // ensure that the publication gets released
+    // ensure that the publication resource gets released
     xSemaphoreGive(publishSema_sts);
     xEventGroupSetBits(mqttEventGroup_sts, MQTT_ERR);
 }
@@ -706,14 +706,15 @@ static esp_err_t Connect(void)
 {
     esp_err_t result_st = ESP_FAIL;
 
-    switch(moduleState_ens)
+    switch(singleton_sst.state_en)
     {
         case STATE_INITIALIZED:
         case STATE_DISCONNECTED:
-            if(NULL != client_xps)
+            if(NULL != singleton_sst.client_xp)
             {
-                result_st = esp_mqtt_client_start(client_xps);
-                moduleState_ens = STATE_CONNECT_IN_PROGRESS;
+                result_st = esp_mqtt_client_start(singleton_sst.client_xp);
+                ESP_LOGI(TAG, "connection done");
+                singleton_sst.state_en = STATE_CONNECT_IN_PROGRESS;
             }
             else
             {
@@ -742,11 +743,11 @@ static esp_err_t Disconnect(void)
 {
     esp_err_t result_st = ESP_FAIL;
 
-    if(   (STATE_NOT_INITIALIZED != moduleState_ens)
-       && (STATE_INITIALIZED != moduleState_ens))
+    if(   (STATE_NOT_INITIALIZED != singleton_sst.state_en)
+       && (STATE_INITIALIZED != singleton_sst.state_en))
     {
-        moduleState_ens = STATE_DISCONNECTED;
-        result_st = esp_mqtt_client_stop(client_xps);
+        singleton_sst.state_en = STATE_DISCONNECTED;
+        result_st = esp_mqtt_client_stop(singleton_sst.client_xp);
 
     }
     else
@@ -779,7 +780,7 @@ static esp_err_t MqttEventHandler_st(esp_mqtt_event_handle_t event_stp)
             break;
         case MQTT_EVENT_SUBSCRIBED:
             ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED");
-            //HandleSubscription_vd(event_stp);
+            HandleSubscription_vd(event_stp);
             break;
         case MQTT_EVENT_UNSUBSCRIBED:
             ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED");
@@ -824,6 +825,7 @@ static void Task_vd(void *pvParameters)
 
         if(0 != (uxBits_st & START_MQTT))
         {
+            ESP_LOGI(TAG, "connect request...");
             (void)Connect();
         }
         if(0 != (uxBits_st & STOP_MQTT))
@@ -833,7 +835,7 @@ static void Task_vd(void *pvParameters)
         if(0 != (uxBits_st & PUBLISH_REQ))
         {
             ESP_LOGI(TAG, "publish start...");
-            pubMsg_sts.msgId_s32 = esp_mqtt_client_publish(client_xps,
+            pubMsg_sts.msgId_s32 = esp_mqtt_client_publish(singleton_sst.client_xp,
                                                             pubMsg_sts.topic_chp,
                                                             pubMsg_sts.data_chp,
                                                             pubMsg_sts.dataLen_u32,
@@ -841,12 +843,18 @@ static void Task_vd(void *pvParameters)
                                                             pubMsg_sts.retain_s32);
             //pubMsg_sts.msgId_s32 = esp_mqtt_client_publish(client_xps, "std/dev99/r/light_one/test", "ON", 0, 1, 0);
             ESP_LOGI(TAG, "called mqtt client to publish, msg_id=%d, topic:%s", pubMsg_sts.msgId_s32, pubMsg_sts.topic_chp);
-            if(0 == pubMsg_sts.qos_s32)
+
+            if((-1 == pubMsg_sts.msgId_s32))
+            {
+                // message publication failed
+                xSemaphoreGive(publishSema_sts);
+                ESP_LOGW(TAG, "error during publication");
+            }
+            else if(0 == pubMsg_sts.qos_s32)
             {
                 // we don't need a message send confirmation
                 xSemaphoreGive(publishSema_sts);
             }
-
         }
         if(0 != (uxBits_st & MQTT_ERR))
         {

@@ -122,7 +122,7 @@ extern esp_err_t devmgr_Initialize(devmgr_param_t *param_stp)
 *//*-----------------------------------------------------------------------------------*/
 extern void devmgr_GenerateDevices(void)
 {
-    esp_err_t result_st = ESP_FAIL;
+    esp_err_t result_st = ESP_OK;
 
     gendev_param_t iniparam_st;
 
@@ -150,18 +150,19 @@ extern void devmgr_GenerateDevices(void)
                 const char *topic_cchp;
                 uint16_t idx_u16 = 0;
                 topic_cchp = gendev_GetSubsTopics_cchp(idx_u16);
-                mqttdrv_subsHdl_t handle_xp;
+                //mqttdrv_subsHdl_t handle_xp;
                 while(NULL != topic_cchp)
                 {
                     memset(&subsParam_st.topic_u8a[0], 0U, sizeof(subsParam_st.topic_u8a));
                     memcpy(&subsParam_st.topic_u8a[0], topic_cchp,
                             utils_MIN(strlen(topic_cchp), mqttif_MAX_SIZE_OF_TOPIC));
-                    handle_xp = mqttdrv_AllocSub_xp(&subsParam_st);
-                    result_st = mqttdrv_Subscribe_xp(handle_xp);
-
-                    ESP_LOGI(TAG, "plot all subscriptions");
-                    ESP_LOGI(TAG, "actual number of subscriptions in list: %d",
-                                mqttdrv_GetNumberOfSubscriptions());
+                    if(NULL == mqttdrv_AllocSub_xp(&subsParam_st))
+                    {
+                        if(ESP_OK == result_st)
+                        {
+                            result_st = ESP_FAIL;
+                        }
+                    }
 
                     idx_u16++;
                     topic_cchp = gendev_GetSubsTopics_cchp(idx_u16);
@@ -176,6 +177,11 @@ extern void devmgr_GenerateDevices(void)
     else
     {
 
+    }
+
+    if(ESP_FAIL == result_st)
+    {
+        ESP_LOGW(TAG, "unexpected error during device generation");
     }
 }
 
