@@ -85,6 +85,18 @@ extern esp_err_t gendev_Initialize_st(gendev_param_t *param_stp);
 extern const char* gendev_GetSubsTopics_cchp(uint16_t idx_u16);
 
 /**---------------------------------------------------------------------------------------
+ * @brief     Get subscriptions from the generic device by index
+ * @author    S. Wink
+ * @date      25. Mar. 2019
+ * @param     idx_u16    index of topic, can be used as iterator
+ * @param     dest_stp   pointer to the subscription parameter structure
+ * @return    returns false if the index was out of bounce and no subscription was
+ *              copied
+*//*-----------------------------------------------------------------------------------*/
+extern bool gendev_GetSubscriptionByIndex_bol(uint16_t idx_u16,
+                                                mqttif_substParam_t *dest_stp);
+
+/**---------------------------------------------------------------------------------------
  * @brief     Get the mqtt connection success function handler
  * @author    S. Wink
  * @date      25. Mar. 2019
@@ -117,12 +129,12 @@ extern mqttif_DataReceived_td gendev_GetDataReceivedHandler_fp(void);
 extern esp_err_t gendev_Activate_st(void);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Deactivate the generic device function
+ * @brief     Stopps the generic device function
  * @author    S. Wink
  * @date      25. Mar. 2019
  * @return    returns ESP_OK if success, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t gendev_Deactivate_st(void);
+extern esp_err_t gendev_Stopp_st(void);
 
 /****************************************************************************************/
 /* Global data definitions: */

@@ -62,6 +62,15 @@ typedef void (* mqttif_Disconnected_td)(void);
 typedef esp_err_t (* mqttif_DataReceived_td)(mqttif_msg_t *);
 typedef esp_err_t (* mqttif_Publish_td)(mqttif_msg_t *, uint32_t);
 
+typedef struct mqttif_substParam_tag
+{
+    uint8_t topic_u8a[mqttif_MAX_SIZE_OF_TOPIC];
+    uint32_t qos_u32;
+    mqttif_Connected_td conn_fp;
+    mqttif_Disconnected_td discon_fp;
+    mqttif_DataReceived_td dataRecv_fp;
+}mqttif_substParam_t;
+
 /****************************************************************************************/
 /* Global function definitions: */
 

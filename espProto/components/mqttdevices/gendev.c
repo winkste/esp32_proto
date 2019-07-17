@@ -79,24 +79,27 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 /****************************************************************************************/
 /* Local type definitions (enum, struct, union) */
-typedef enum objState_tag
+typedef enum objectState_tag
 {
      STATE_NOT_INITIALIZED,
      STATE_INITIALIZED,
+     STATE_ACTIVE,
+     STATE_STOPPED,
      STATE_CONNECTED,
      STATE_DISCONNECTED
-}objState_t;
+}objectState_t;
 
-typedef struct objdata_tag
+typedef struct moduleData_tag
 {
     gendev_param_t param_st;
-    objState_t state_en;
+    objectState_t state_en;
     mqttif_msg_t pubMsg_st;
     uint32_t healthCounter_u32;
     EventGroupHandle_t eventGroup_st;
+    TimerHandle_t cycleTimer_st;
     char subs_chap[MQTT_SUBSCRIPTIONS_NUM][mqttif_MAX_SIZE_OF_TOPIC];
     uint16_t subsCounter_u16;
-}objdata_t;
+}objectData_t;
 
 /****************************************************************************************/
 /* Local functions prototypes: */
@@ -112,7 +115,7 @@ static void Task_vd(void *pvParameters);
 /****************************************************************************************/
 /* Local variables: */
 
-static objdata_t singleton_sts;
+static objectData_t singleton_sts;
 
 static const char *subscriptions_cchsap[MQTT_SUBSCRIPTIONS_NUM] =
 {
@@ -120,12 +123,11 @@ static const char *subscriptions_cchsap[MQTT_SUBSCRIPTIONS_NUM] =
     MQTT_SUB_COMMAND  // write message for geeneric broadcast
 };
 
-static const int MQTT_CON           = BIT0;
-static const int MQTT_DISCON        = BIT1;
+static const int MQTT_CONNECT       = BIT0;
+static const int MQTT_DISCONNECT    = BIT1;
 static const int CYCLE_TIMER        = BIT2;
 static const int MOD_ERROR          = BIT3;
-static const int MQTT_DATA          = BIT4;
-static const int MQTT_INFO_REQUEST  = BIT5;
+static const int MQTT_INFO_REQUEST  = BIT4;
 
 static const char *TAG = "gendev";
 
@@ -163,8 +165,11 @@ esp_err_t gendev_InitializeParameter_st(gendev_param_t *param_stp)
 esp_err_t gendev_Initialize_st(gendev_param_t *param_stp)
 {
     esp_err_t result_st = ESP_FAIL;
-    static TimerHandle_t cycleTimer_st;
 
+
+    esp_log_level_set(TAG, ESP_LOG_DEBUG);
+
+    ESP_LOGD(TAG, "initialization started...");
     if(NULL != param_stp)
     {
         /* copy parameters and initialize internal module data */
@@ -173,8 +178,10 @@ esp_err_t gendev_Initialize_st(gendev_param_t *param_stp)
         singleton_sts.param_st.publishHandler_fp = param_stp->publishHandler_fp;
         singleton_sts.pubMsg_st.dataLen_u32 = 0;
         singleton_sts.pubMsg_st.topicLen_u32 = 0;
-        singleton_sts.pubMsg_st.topic_chp = malloc(mqttif_MAX_SIZE_OF_TOPIC * sizeof(char));
-        singleton_sts.pubMsg_st.data_chp = malloc(mqttif_MAX_SIZE_OF_DATA * sizeof(char));
+        singleton_sts.pubMsg_st.topic_chp =
+                                        malloc(mqttif_MAX_SIZE_OF_TOPIC * sizeof(char));
+        singleton_sts.pubMsg_st.data_chp =
+                                        malloc(mqttif_MAX_SIZE_OF_DATA * sizeof(char));
         singleton_sts.pubMsg_st.qos_s32 = 1;
         singleton_sts.pubMsg_st.retain_s32 = 0;
         singleton_sts.subsCounter_u16 = 0U;
@@ -185,15 +192,11 @@ esp_err_t gendev_Initialize_st(gendev_param_t *param_stp)
                                                 singleton_sts.param_st.id_chp,
                                                 subscriptions_cchsap[0],
                                                 &singleton_sts.subs_chap[0][0]);
-                    /*ESP_LOGI(TAG, "this is the generated subscription: %s",
-                                    &subscriptions_chsap[0][0]);*/
-                    singleton_sts.subsCounter_u16++;
+        singleton_sts.subsCounter_u16++;
 
         utils_BuildReceiveTopicBCast_chp(subscriptions_cchsap[1],
                                                 &singleton_sts.subs_chap[1][0]);
-                    /*ESP_LOGI(TAG, "this is the generated subscription: %s",
-                                    &subscriptions_chsap[1][0]);*/
-                    singleton_sts.subsCounter_u16++;
+        singleton_sts.subsCounter_u16++;
 
         singleton_sts.state_en = STATE_INITIALIZED;
 
@@ -203,34 +206,31 @@ esp_err_t gendev_Initialize_st(gendev_param_t *param_stp)
     singleton_sts.eventGroup_st = xEventGroupCreate();
     if(NULL == singleton_sts.eventGroup_st)
     {
-        ESP_LOGE(TAG, "eventGroup creation error");
+        ESP_LOGE(TAG, "eventGroup creation error...");
         result_st = ESP_FAIL;
     }
 
-    cycleTimer_st = xTimerCreate("Timer", pdMS_TO_TICKS(10000), true, (void *) 0,
-                                     TimerCallback_vd);
-    if(NULL != cycleTimer_st)
+    singleton_sts.cycleTimer_st = xTimerCreate("Timer", pdMS_TO_TICKS(10000), true,
+                                                (void *) 0, TimerCallback_vd);
+    if(NULL == singleton_sts.cycleTimer_st)
     {
-        xTimerStart(cycleTimer_st, 0);
-    }
-    else
-    {
-        ESP_LOGE(TAG, "timer creation error");
+        ESP_LOGE(TAG, "timer creation error...");
         result_st = ESP_FAIL;
     }
 
     /* start the mqtt task */
     if(!xTaskCreate(Task_vd, "gendevTask", 4096, NULL, 5, NULL))
     {
-        ESP_LOGE(TAG, "task creation error");
+        ESP_LOGE(TAG, "task creation error...");
         result_st = ESP_FAIL;
     }
 
+    ESP_LOGD(TAG, "initialization completed...");
     return(result_st);
 }
 
 /**---------------------------------------------------------------------------------------
- * @brief     Get subscribe topics from the generic device
+ * @brief     Get subscribe topics from the device
 *//*-----------------------------------------------------------------------------------*/
 const char* gendev_GetSubsTopics_cchp(uint16_t idx_u16)
 {
@@ -242,6 +242,41 @@ const char* gendev_GetSubsTopics_cchp(uint16_t idx_u16)
     {
         return(NULL);
     }
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Get subscriptions from the generic device by index
+ * @author    S. Wink
+ * @date      25. Mar. 2019
+ * @param     idx_u16    index of topic, can be used as iterator
+ * @param     dest_stp   pointer to the subscription parameter structure
+ * @return    returns false if the index was out of bounce and no subscription was
+ *              copied
+*//*-----------------------------------------------------------------------------------*/
+extern bool gendev_GetSubscriptionByIndex_bol(uint16_t idx_u16,
+                                                mqttif_substParam_t *dest_stp)
+{
+    bool indexIsValid_bol = false;
+
+    if(singleton_sts.subsCounter_u16 > idx_u16)
+    {
+        indexIsValid_bol = true;
+        dest_stp->conn_fp = OnConnectionHandler_vd;
+        dest_stp->discon_fp = OnDisconnectionHandler_vd;
+        dest_stp->dataRecv_fp = OnDataReceivedHandler_st;
+        dest_stp->qos_u32 = 0;
+
+        memset(&dest_stp->topic_u8a[0], 0U, sizeof(dest_stp->topic_u8a));
+        memcpy(&dest_stp->topic_u8a[0], &singleton_sts.subs_chap[idx_u16][0],
+             utils_MIN(strlen(singleton_sts.subs_chap[idx_u16]),
+                         mqttif_MAX_SIZE_OF_TOPIC));
+    }
+    else
+    {
+        indexIsValid_bol = false;
+    }
+
+    return(indexIsValid_bol);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -273,14 +308,52 @@ mqttif_DataReceived_td gendev_GetDataReceivedHandler_fp(void)
 *//*-----------------------------------------------------------------------------------*/
 esp_err_t gendev_Activate_st(void)
 {
-    return(ESP_FAIL);
+    esp_err_t result_st = ESP_FAIL;
+
+    if(STATE_INITIALIZED == singleton_sts.state_en)
+    {
+        if(NULL != singleton_sts.cycleTimer_st)
+        {
+            if(pdPASS == xTimerStart(singleton_sts.cycleTimer_st, 0))
+            {
+                result_st = ESP_OK;
+                singleton_sts.state_en = STATE_ACTIVE;
+            }
+        }
+    }
+
+    if(ESP_FAIL == result_st)
+    {
+        ESP_LOGE(TAG, "error during activation detected...");
+    }
+
+    return(result_st);
 }
 
 /**---------------------------------------------------------------------------------------
- * @brief     Deactivate the generic device function
+ * @brief     Stopps the generic device function
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t gendev_Deactivate_st(void)
+esp_err_t gendev_Stopp_st(void)
 {
+    esp_err_t result_st = ESP_FAIL;
+
+    if(STATE_NOT_INITIALIZED != singleton_sts.state_en)
+    {
+        if(NULL != singleton_sts.cycleTimer_st)
+        {
+            if(pdPASS == xTimerStop(singleton_sts.cycleTimer_st, 0))
+            {
+                result_st = ESP_OK;
+                singleton_sts.state_en = STATE_STOPPED;
+            }
+        }
+    }
+
+    if(ESP_FAIL == result_st)
+    {
+        ESP_LOGE(TAG, "error during stopping detected...");
+    }
+
     return(ESP_FAIL);
 }
 
@@ -295,7 +368,7 @@ esp_err_t gendev_Deactivate_st(void)
 *//*-----------------------------------------------------------------------------------*/
 static void OnConnectionHandler_vd(void)
 {
-    xEventGroupSetBits(singleton_sts.eventGroup_st, MQTT_CON);
+    xEventGroupSetBits(singleton_sts.eventGroup_st, MQTT_CONNECT);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -306,11 +379,11 @@ static void OnConnectionHandler_vd(void)
 *//*-----------------------------------------------------------------------------------*/
 static void OnDisconnectionHandler_vd(void)
 {
-    xEventGroupSetBits(singleton_sts.eventGroup_st, MQTT_DISCON);
+    xEventGroupSetBits(singleton_sts.eventGroup_st, MQTT_DISCONNECT);
 }
 
-/**---------------------------------------------------------------------------------------
- * @brief     function to send info record
+/**--------------------------------------------------------------------------------------
+ * @brief     function to send firmware info record
  * @author    S. Wink
  * @date      29. May. 2019
  * @return    n/a
@@ -319,56 +392,58 @@ static void SendInfoRecord_vd(void)
 {
     esp_err_t result_st = ESP_OK;
 
-    // send the firmware identifier
-    //ESP_LOGE(TAG, "send fw ident");
+
+    ESP_LOGD(TAG, "send firmware identifier...");
     utils_BuildSendTopic_chp(singleton_sts.param_st.deviceName_chp,
                                 singleton_sts.param_st.id_chp,
                                 MQTT_PUB_FW_IDENT,
                                 singleton_sts.pubMsg_st.topic_chp);
-    //ESP_LOGI(TAG, "%s", singleton_sts.pubMsg_st.topic_chp);
+
     singleton_sts.pubMsg_st.topicLen_u32 =
             strlen(singleton_sts.pubMsg_st.topic_chp);
     singleton_sts.pubMsg_st.dataLen_u32 =
             sprintf(singleton_sts.pubMsg_st.data_chp, "Firmware PN: %s",
                                  myVersion_GetFwIdentifier_cch());
+    ESP_LOGD(TAG, "topic:%s, data:%s", singleton_sts.pubMsg_st.topic_chp,
+                                        singleton_sts.pubMsg_st.data_chp);
     result_st = singleton_sts.param_st.publishHandler_fp(&singleton_sts.pubMsg_st,
                                                             MAX_PUB_WAIT);
-    //ESP_LOGE(TAG, "send fw version");
+    ESP_LOGD(TAG, "send firmware version...");
     if(ESP_OK == result_st)
     {
-        // send the firmware version
         utils_BuildSendTopic_chp(singleton_sts.param_st.deviceName_chp,
                                  singleton_sts.param_st.id_chp,
                                  MQTT_PUB_FW_VERSION,
                                  singleton_sts.pubMsg_st.topic_chp);
-        //ESP_LOGI(TAG, "%s", singleton_sts.pubMsg_st.topic_chp);
         singleton_sts.pubMsg_st.topicLen_u32 = strlen(singleton_sts.pubMsg_st.topic_chp);
         singleton_sts.pubMsg_st.dataLen_u32 =
                 sprintf(singleton_sts.pubMsg_st.data_chp, "Firmware Version: %s",
                                  myVersion_GetFwVersion_cch());
+        ESP_LOGD(TAG, "topic:%s, data:%s", singleton_sts.pubMsg_st.topic_chp,
+                                            singleton_sts.pubMsg_st.data_chp);
         result_st = singleton_sts.param_st.publishHandler_fp(&singleton_sts.pubMsg_st,
                                                                 MAX_PUB_WAIT);
     }
 
-    //ESP_LOGE(TAG, "send fw description");
+    ESP_LOGD(TAG, "send firmware description...");
     if(ESP_OK == result_st)
     {
-        // send the firmware description
         utils_BuildSendTopic_chp(singleton_sts.param_st.deviceName_chp,
                                          singleton_sts.param_st.id_chp,
                                          MQTT_PUB_FW_DESC,
                                          singleton_sts.pubMsg_st.topic_chp);
-        ESP_LOGI(TAG, "%s", singleton_sts.pubMsg_st.topic_chp);
         singleton_sts.pubMsg_st.topicLen_u32 = strlen(singleton_sts.pubMsg_st.topic_chp);
         singleton_sts.pubMsg_st.dataLen_u32 =
                 sprintf(singleton_sts.pubMsg_st.data_chp, "Firmware Description: %s",
                                         myVersion_GetFwDescription_cch());
+        ESP_LOGD(TAG, "topic:%s, data:%s", singleton_sts.pubMsg_st.topic_chp,
+                                            singleton_sts.pubMsg_st.data_chp);
         result_st = singleton_sts.param_st.publishHandler_fp(&singleton_sts.pubMsg_st,
                                                                 MAX_PUB_WAIT);
     }
 }
 
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     Handler when disconnected from mqtt broker
  * @author    S. Wink
  * @date      08. Apr. 2019
@@ -377,9 +452,8 @@ static void SendInfoRecord_vd(void)
 static esp_err_t OnDataReceivedHandler_st(mqttif_msg_t *msg_stp)
 {
     esp_err_t result_st = ESP_OK;
-    char msgData_ca[50];
 
-    ESP_LOGI(TAG, "message topic:%.*s received with data:%.*s",
+    ESP_LOGD(TAG, "message topic:%.*s received with data:%.*s",
             msg_stp->topicLen_u32, msg_stp->topic_chp,
             msg_stp->dataLen_u32, msg_stp->data_chp);
 
@@ -398,17 +472,18 @@ static esp_err_t OnDataReceivedHandler_st(mqttif_msg_t *msg_stp)
         }
         else
         {
-            ESP_LOGW(TAG, "unexpected data %.*s", msg_stp->dataLen_u32, msg_stp->data_chp);
+            ESP_LOGW(TAG, "unexpected data received: %.*s", msg_stp->dataLen_u32,
+                                                    msg_stp->data_chp);
             result_st = ESP_FAIL;
         }
     }
     else
     {
-        ESP_LOGW(TAG, "unexpected topic %.*s", msg_stp->topicLen_u32, msg_stp->topic_chp);
+        ESP_LOGW(TAG, "unexpected topic received: %.*s", msg_stp->topicLen_u32,
+                                                msg_stp->topic_chp);
         result_st = ESP_FAIL;
     }
 
-    xEventGroupSetBits(singleton_sts.eventGroup_st, MQTT_DATA);
     return(result_st);
 }
 
@@ -426,12 +501,17 @@ static void SendHealthCounter_vd(void)
                                      singleton_sts.param_st.id_chp,
                                      MQTT_PUB_HEALTH,
                                      singleton_sts.pubMsg_st.topic_chp);
-    ESP_LOGI(TAG, "%s", singleton_sts.pubMsg_st.topic_chp);
     singleton_sts.pubMsg_st.topicLen_u32 = strlen(singleton_sts.pubMsg_st.topic_chp);
     singleton_sts.pubMsg_st.dataLen_u32 =
          sprintf(singleton_sts.pubMsg_st.data_chp, "%d",singleton_sts.healthCounter_u32);
     result_st = singleton_sts.param_st.publishHandler_fp(&singleton_sts.pubMsg_st,
                                                             MAX_PUB_WAIT);
+    ESP_LOGD(TAG, "publish: %s :: %s", singleton_sts.pubMsg_st.topic_chp,
+                                        singleton_sts.pubMsg_st.data_chp);
+    if(ESP_FAIL == result_st)
+    {
+        ESP_LOGE(TAG, "error during publishing of health counter");
+    }
 }
 
 /**---------------------------------------------------------------------------------------
@@ -442,7 +522,7 @@ static void SendHealthCounter_vd(void)
 *//*-----------------------------------------------------------------------------------*/
 static void TimerCallback_vd(TimerHandle_t xTimer)
 {
-    ESP_LOGE(TAG, "timer callback");
+    ESP_LOGD(TAG, "timer callback...");
     xEventGroupSetBits(singleton_sts.eventGroup_st, CYCLE_TIMER);
 }
 
@@ -455,41 +535,37 @@ static void TimerCallback_vd(TimerHandle_t xTimer)
 static void Task_vd(void *pvParameters)
 {
     EventBits_t uxBits_st;
-    uint32_t bits_u32 =   MQTT_CON | MQTT_DISCON | CYCLE_TIMER
-                        | MOD_ERROR | MQTT_DATA | MQTT_INFO_REQUEST;
+    uint32_t bits_u32 =   MQTT_CONNECT | MQTT_DISCONNECT | CYCLE_TIMER
+                        | MOD_ERROR | MQTT_INFO_REQUEST;
 
-    ESP_LOGI(TAG, "gendevtask started...");
+    ESP_LOGD(TAG, "gendev-task started...");
     while(1)
     {
         uxBits_st = xEventGroupWaitBits(singleton_sts.eventGroup_st, bits_u32,
                                          true, false, portMAX_DELAY); // @suppress("Symbol is not resolved")
 
-        if(0 != (uxBits_st & MQTT_CON))
+        if(0 != (uxBits_st & MQTT_CONNECT))
         {
-            ESP_LOGI(TAG, "mqtt connected and topic subscribed");
+            ESP_LOGD(TAG, "mqtt connected and topic subscribed");
         }
-        if(0 != (uxBits_st & MQTT_DISCON))
+        if(0 != (uxBits_st & MQTT_DISCONNECT))
         {
-            ESP_LOGI(TAG, "mqtt disconnected");
+            ESP_LOGD(TAG, "mqtt disconnected");
 
         }
         if(0 != (uxBits_st & CYCLE_TIMER))
         {
-            ESP_LOGI(TAG, "cycle timer expired");
+            ESP_LOGD(TAG, "CYCLE_TIMER event...");
             singleton_sts.healthCounter_u32++;
             SendHealthCounter_vd();
-
         }
         if(0 != (uxBits_st & MOD_ERROR))
         {
-            ESP_LOGI(TAG, "module error");
-        }
-        if(0 != (uxBits_st & MQTT_DATA))
-        {
-            ESP_LOGI(TAG, "event: MQTT_DATA");
+            ESP_LOGE(TAG, "unexpected module error detected...");
         }
         if(0 != (uxBits_st & MQTT_INFO_REQUEST))
         {
+            ESP_LOGD(TAG, "mqtt information request received...");
             SendInfoRecord_vd();
         }
     }

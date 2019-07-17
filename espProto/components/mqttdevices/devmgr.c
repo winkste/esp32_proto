@@ -55,34 +55,35 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Local type definitions (enum, struct, union) */
 
-typedef enum moduleState_tag
+typedef enum objectState_tag
 {
      STATE_NOT_INITIALIZED,
      STATE_INITIALIZED,
      STATE_DEVICES_ACTIVE
-}moduleState_t;
+}objectState_t;
 
 typedef enum capType_tag
 {
-    CAPABILITY_DEFAULT = 0,
+    CAPABILITY_DEFAULT   = 0,
     CAPABILITY_DHT22,
     CAPABILITY_UNDEFINED = 0xFF
 }capType_t;
 
-typedef struct moduleData_tag
+typedef struct objectData_tag
 {
      capType_t cap_en;
-     moduleState_t state_st;
+     objectState_t state_st;
      char *devName_chp;
      char *id_chp;
-}moduleData_t;
+}objectData_t;
 
 /****************************************************************************************/
 /* Local functions prototypes: */
+static esp_err_t GenerateDefaultDevice_st(void);
 
 /****************************************************************************************/
 /* Local variables: */
-moduleData_t obj_st =
+static objectData_t obj_sts =
 {
     .cap_en = CAPABILITY_DEFAULT,
     .state_st = STATE_NOT_INITIALIZED,
@@ -112,7 +113,7 @@ extern esp_err_t devmgr_Initialize(devmgr_param_t *param_stp)
 {
     esp_err_t result_st = ESP_OK;
 
-    obj_st.state_st = STATE_INITIALIZED;
+    obj_sts.state_st = STATE_INITIALIZED;
 
     return(result_st);
 }
@@ -124,48 +125,20 @@ extern void devmgr_GenerateDevices(void)
 {
     esp_err_t result_st = ESP_OK;
 
-    gendev_param_t iniparam_st;
 
-    if(STATE_INITIALIZED == obj_st.state_st)
+    if(STATE_INITIALIZED == obj_sts.state_st)
     {
-        obj_st.state_st = STATE_DEVICES_ACTIVE;
+        obj_sts.state_st = STATE_DEVICES_ACTIVE;
 
-        switch(obj_st.cap_en)
+        switch(obj_sts.cap_en)
         {
             case CAPABILITY_DEFAULT:
-                result_st = gendev_InitializeParameter_st(&iniparam_st);
-                iniparam_st.deviceName_chp = obj_st.devName_chp;
-                iniparam_st.id_chp = obj_st.id_chp;
-                iniparam_st.publishHandler_fp = mqttdrv_Publish_st;
-                result_st = gendev_Initialize_st(&iniparam_st);
-
-                mqttdrv_substParam_t subsParam_st;
-                result_st = mqttdrv_InitSubParam(&subsParam_st);
-
-                subsParam_st.conn_fp = gendev_GetConnectHandler_fp();
-                subsParam_st.discon_fp = gendev_GetDisconnectHandler_fp();
-                subsParam_st.dataRecv_fp = gendev_GetDataReceivedHandler_fp();
-                subsParam_st.qos_u32 = 0;
-
-                const char *topic_cchp;
-                uint16_t idx_u16 = 0;
-                topic_cchp = gendev_GetSubsTopics_cchp(idx_u16);
-                //mqttdrv_subsHdl_t handle_xp;
-                while(NULL != topic_cchp)
+                if(ESP_OK == GenerateDefaultDevice_st())
                 {
-                    memset(&subsParam_st.topic_u8a[0], 0U, sizeof(subsParam_st.topic_u8a));
-                    memcpy(&subsParam_st.topic_u8a[0], topic_cchp,
-                            utils_MIN(strlen(topic_cchp), mqttif_MAX_SIZE_OF_TOPIC));
-                    if(NULL == mqttdrv_AllocSub_xp(&subsParam_st))
+                    if(ESP_OK == gendev_Activate_st())
                     {
-                        if(ESP_OK == result_st)
-                        {
-                            result_st = ESP_FAIL;
-                        }
+                        ESP_LOGI(TAG, "generic device generated and activated...");
                     }
-
-                    idx_u16++;
-                    topic_cchp = gendev_GetSubsTopics_cchp(idx_u16);
                 }
                 break;
             case CAPABILITY_DHT22:
@@ -187,5 +160,64 @@ extern void devmgr_GenerateDevices(void)
 
 /****************************************************************************************/
 /* Local functions: */
+/**---------------------------------------------------------------------------------------
+ * @brief     generate default capability mqtt devices
+ * @author    S. Wink
+ * @date      24. Jun. 2019
+ * @return    true if empty, else false
+*//*------------------------------------------------------------------------------------*/
+static esp_err_t GenerateDefaultDevice_st(void)
+{
+    esp_err_t result_st = ESP_OK;
+    gendev_param_t iniparam_st;
+    //const char *topic_cchp;
+    uint16_t idx_u16 = 0;
+    mqttif_substParam_t subsParam_st;
 
+    // initialize the device first
+    result_st = gendev_InitializeParameter_st(&iniparam_st);
+    iniparam_st.deviceName_chp = obj_sts.devName_chp;
+    iniparam_st.id_chp = obj_sts.id_chp;
+    iniparam_st.publishHandler_fp = mqttdrv_Publish_st;
+    result_st = gendev_Initialize_st(&iniparam_st);
 
+    ESP_LOGD(TAG, "start subscribing gendev topics");
+
+    // subscribe to all topics of this device
+    result_st = mqttdrv_InitSubscriptParam(&subsParam_st);
+
+    bool hasMoreSubscriptions_bol;
+    hasMoreSubscriptions_bol = gendev_GetSubscriptionByIndex_bol(idx_u16, &subsParam_st);
+    ESP_LOGD(TAG, "topic from gendev: %s", subsParam_st.topic_u8a);
+    while(hasMoreSubscriptions_bol && (ESP_FAIL != result_st))
+    {
+        if(NULL == mqttdrv_AllocSub_xp(&subsParam_st))
+        {
+            result_st = ESP_FAIL;
+        }
+        idx_u16++;
+        hasMoreSubscriptions_bol = gendev_GetSubscriptionByIndex_bol(idx_u16,
+                                                                        &subsParam_st);
+    }
+
+    /*subsParam_st.conn_fp = gendev_GetConnectHandler_fp();
+    subsParam_st.discon_fp = gendev_GetDisconnectHandler_fp();
+    subsParam_st.dataRecv_fp = gendev_GetDataReceivedHandler_fp();
+    subsParam_st.qos_u32 = 0;
+
+    topic_cchp = gendev_GetSubsTopics_cchp(idx_u16);
+    while((NULL != topic_cchp) && (ESP_FAIL != result_st))
+    {
+        memset(&subsParam_st.topic_u8a[0], 0U, sizeof(subsParam_st.topic_u8a));
+        memcpy(&subsParam_st.topic_u8a[0], topic_cchp,
+                utils_MIN(strlen(topic_cchp), mqttif_MAX_SIZE_OF_TOPIC));
+        if(NULL == mqttdrv_AllocSub_xp(&subsParam_st))
+        {
+            result_st = ESP_FAIL;
+        }
+        idx_u16++;
+        topic_cchp = gendev_GetSubsTopics_cchp(idx_u16);
+    }*/
+
+    return(result_st);
+}

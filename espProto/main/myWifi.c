@@ -151,6 +151,8 @@ void myWifi_InitializeWifi_vd(myWifi_parameter_t *param_stp)
     eventWifiDisconnected_ptrs = param_stp->eventWifiDisconnected_ptrs;
     paramif_allocParam_t wifiAllocParam_st;
 
+    esp_log_level_set("phy_init", ESP_LOG_INFO);
+
     tcpip_adapter_init();
     wifiEventGroup_sts = xEventGroupCreate();
     ESP_ERROR_CHECK(esp_event_loop_init(EventHandler_st, NULL) );

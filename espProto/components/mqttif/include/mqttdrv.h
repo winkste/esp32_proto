@@ -105,7 +105,7 @@ extern void mqttdrv_StartMqttDemon(void);
  * @param     subsParam_stp         user structure for mqtt subs/pubs
  * @return    n/a
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t mqttdrv_InitSubParam(mqttdrv_substParam_t *subsParam_stp);
+extern esp_err_t mqttdrv_InitSubscriptParam(mqttif_substParam_t *subsParam_stp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Allocate subscribe handle
@@ -114,7 +114,7 @@ extern esp_err_t mqttdrv_InitSubParam(mqttdrv_substParam_t *subsParam_stp);
  * @param     subsParam_stp         user structure for mqtt subs/pubs
  * @return    in case of success an opaque pointer to the handle, else NULL
 *//*-----------------------------------------------------------------------------------*/
-extern mqttdrv_subsHdl_t mqttdrv_AllocSub_xp(mqttdrv_substParam_t *subsParam_stp);
+extern mqttdrv_subsHdl_t mqttdrv_AllocSub_xp(mqttif_substParam_t *subsParam_stp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Deallocate subscribe handle
