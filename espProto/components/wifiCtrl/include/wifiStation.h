@@ -1,12 +1,12 @@
 /*****************************************************************************************
-* FILENAME :        consoleSocket.h
+* FILENAME :        wifiStation.h
 *
 * DESCRIPTION :
-*       Header file for console socket server handling
+*      Header file for wifi station mode module.
 *
-* AUTHOR :    Stephan Wink        CREATED ON :    25. January 2019
+* AUTHOR :    Stephan Wink        CREATED ON :    26.08.2019
 *
-* Copyright (c) [2019] [Stephan Wink]
+* Copyright (c) [2017] [Stephan Wink]
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -26,12 +26,13 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef CONSOLESOCKET_H_
-#define CONSOLESOCKET_H_
+#ifndef WIFISTATION_H_
+#define WIFISTATION_H_
 
 /****************************************************************************************/
 /* Imported header files: */
-#include "esp_err.h"
+
+#include "wifiIf.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
@@ -42,19 +43,17 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
-typedef struct consoleSocket_parameter_tag
-{
-    void (*eventSocketError_ptrs)(void);
-
-}socketServer_parameter_t;
-
 /****************************************************************************************/
 /* Global function definitions: */
 
-extern esp_err_t consoleSocket_Initialize_st(socketServer_parameter_t *param_stp);
-extern void consoleSocket_Task_vd(void *pvParameters);
-extern void consoleSocket_Activate_vd(void);
-extern void consoleSocket_Deactivate_vd(void);
+/**---------------------------------------------------------------------------------------
+ * @brief     Function to initialize WIFI to station mode
+ * @author    S. Wink
+ * @date      26. Aug. 2019
+ * @param     wifiSettings_stp           wifi settings structure pointer
+ * @return    returns the exectution result of function
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t wifiStation_Initialize_st(wifiIf_setStation_t *setup_stp);
 
 /****************************************************************************************/
 /* Global data definitions: */

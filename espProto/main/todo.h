@@ -9,7 +9,6 @@
 #define MAIN_TODO_H_
 
 //TODO: why do I need frames in the pathes?
-//TODO: rename myVersion and myWifi
 //TODO: re-test console & OTA update
 //TODO: WROVER display log module
 //TODO: rename myConsole
@@ -19,6 +18,7 @@
 //TODO: add a wifiCmd module for wifi command handling
 //TODO: add a controlCmd module for controlTask specific command handling
 //TODO: wifi should be a component
+//TODO: rework the error handling
 
 
 

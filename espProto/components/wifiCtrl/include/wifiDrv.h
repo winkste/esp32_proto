@@ -1,12 +1,12 @@
 /*****************************************************************************************
-* FILENAME :        consoleSocket.h
+* FILENAME :        wifiDrv.h
 *
 * DESCRIPTION :
-*       Header file for console socket server handling
+*      Header file for wifi driver module
 *
-* AUTHOR :    Stephan Wink        CREATED ON :    25. January 2019
+* AUTHOR :    Stephan Wink        CREATED ON :    01.09.2019
 *
-* Copyright (c) [2019] [Stephan Wink]
+* Copyright (c) [2017] [Stephan Wink]
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -26,12 +26,13 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef CONSOLESOCKET_H_
-#define CONSOLESOCKET_H_
+#ifndef WIFIDRV_H_
+#define WIFIDRV_H_
 
 /****************************************************************************************/
 /* Imported header files: */
-#include "esp_err.h"
+
+#include "wifiIf.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
@@ -42,20 +43,39 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
-typedef struct consoleSocket_parameter_tag
-{
-    void (*eventSocketError_ptrs)(void);
-
-}socketServer_parameter_t;
-
 /****************************************************************************************/
 /* Global function definitions: */
 
-extern esp_err_t consoleSocket_Initialize_st(socketServer_parameter_t *param_stp);
-extern void consoleSocket_Task_vd(void *pvParameters);
-extern void consoleSocket_Activate_vd(void);
-extern void consoleSocket_Deactivate_vd(void);
+/**---------------------------------------------------------------------------------------
+ * @brief     Initializes the initialization structure of the mqtt module
+ * @author    S. Wink
+ * @date      01. Sep. 2019
+ * @param     param_stp           wifi parameter structure
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t wifiDrv_InitializeParameter(wifiIf_eventCallB2_t *param_stp);
 
+/**---------------------------------------------------------------------------------------
+ * @brief     General initialization of wifi driver. This function has to be
+ *              executed before the other ones.
+ * @author    S. Wink
+ * @date      01. Sep. 2019
+ * @param     param_stp           wifi parameter structure
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t wifiDrv_Initialize_vd(wifiIf_eventCallB2_t *param_stp);
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Starts the wifi demon if it was initialized
+ * @author    S. Wink
+ * @date      01. Sep. 2019
+*//*-----------------------------------------------------------------------------------*/
+extern void wifidrv_StartWifiDemon(void);
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Function to register WIFI commands
+ * @author    S. Wink
+ * @date      01. Sep. 2019
+*//*-----------------------------------------------------------------------------------*/
+extern void wifiDrv_RegisterWifiCommands_vd(void);
 /****************************************************************************************/
 /* Global data definitions: */
 

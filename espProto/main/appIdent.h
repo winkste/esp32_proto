@@ -1,13 +1,12 @@
 /*****************************************************************************************
-* FILENAME :        myVersion.h          
+* FILENAME :        appIdent.h
 *
 * DESCRIPTION :
 *       Header file to define project specific settings
 *
-* PUBLIC FUNCTIONS :
-*       N/A
+* NOTES : N/A
 *
-* NOTES :
+* AUTHOR :    Stephan Wink        CREATED ON :    08.03.2019
 *
 * Copyright (c) [2017] [Stephan Wink]
 * 
@@ -28,12 +27,10 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
-* 
-* AUTHOR :    Stephan Wink        START DATE :    07.03.2019
 *
 *****************************************************************************************/
-#ifndef MYVERSION_H
-#define MYVERSION_H
+#ifndef APPIDENT_H
+#define APPIDENT_H
 
 /****************************************************************************************/
 /* Imported header files: */
@@ -56,12 +53,12 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /* Global function prototypes: */
 
 /**---------------------------------------------------------------------------------------
- * @brief     Initialization function for myVersion
+ * @brief     Initialization function for appIdent
  * @author    S. Wink
  * @date      08. Mar. 2019
  * @return    esp error code (ESP_OK)
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t myVersion_Initialize_st(void);
+extern esp_err_t appIdent_Initialize_st(void);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Provides read access to the firmware identifier
@@ -69,7 +66,7 @@ extern esp_err_t myVersion_Initialize_st(void);
  * @date      08. Mar. 2019
  * @return    pointer to the firmware idenitfier
 *//*-----------------------------------------------------------------------------------*/
-extern const char * myVersion_GetFwIdentifier_cch(void);
+extern const char * appIdent_GetFwIdentifier_cch(void);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Provides read access to the firmware version
@@ -77,7 +74,7 @@ extern const char * myVersion_GetFwIdentifier_cch(void);
  * @date      08. Mar. 2019
  * @return    pointer to the firmware version
 *//*-----------------------------------------------------------------------------------*/
-extern const char * myVersion_GetFwVersion_cch(void);
+extern const char * appIdent_GetFwVersion_cch(void);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Provides read access to the firmware description
@@ -85,8 +82,8 @@ extern const char * myVersion_GetFwVersion_cch(void);
  * @date      08. Mar. 2019
  * @return    pointer to the firmware description
 *//*-----------------------------------------------------------------------------------*/
-extern const char * myVersion_GetFwDescription_cch(void);
+extern const char * appIdent_GetFwDescription_cch(void);
 
-#endif /* MYVERSION_H */
+#endif
 /****************************************************************************************/
 

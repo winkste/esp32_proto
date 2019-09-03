@@ -36,6 +36,8 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /* Imported header files: */
 
 #include "stdint.h"
+#include "stdbool.h"
+#include "esp_err.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
@@ -108,7 +110,7 @@ extern char* utils_BuildSendTopicWChan_chp(const char *dev_p, const char *channe
  * @param     buffer_chp    pointer to result buffer string
  * @return    combined topic as char pointer, it uses buffer_p to store the topic
 *//*-----------------------------------------------------------------------------------*/
-extern char* utils_BuildSendTopic_chp(const char *dev_cchp, const char *channel_cchp,
+extern const char* utils_BuildSendTopic_chp(const char *dev_cchp, const char *channel_cchp,
         const char *topic_chp, char *buffer_chp);
 
 /**---------------------------------------------------------------------------------------
@@ -157,6 +159,18 @@ extern uint16_t utils_CalcLogDigitsFromPercent_u16(uint8_t percent_u8);
 *//*-----------------------------------------------------------------------------------*/
 extern uint16_t utils_CalcLogDigitsFromPercentWMax_u16(uint8_t percent_u8,
                                                     uint16_t maxVal_u16);
+
+/**--------------------------------------------------------------------------------------
+ * @brief     Change the state of the internal object based on the wifi state
+ * @author    S. Wink
+ * @date      28. Aug. 2019
+ * @param     file_ccp    name of the file where the check is executed
+ * @param     exeCode_st  the returned standard execution code
+ * @param     line_u32    the line of code where the execution was done
+ * @return    true if error code is ESP_OK, else false
+*//*-----------------------------------------------------------------------------------*/
+extern bool utils_CheckAndLogExecution_bol(const char *file_ccp, esp_err_t exeCode_st,
+                                        uint32_t line_u32);
 
 /****************************************************************************************/
 /* Global data definitions: */

@@ -1,12 +1,12 @@
 /*****************************************************************************************
-* FILENAME :        consoleSocket.h
+* FILENAME :        wifiCtrl.h
 *
 * DESCRIPTION :
-*       Header file for console socket server handling
+*      Header file for wifi control module
 *
-* AUTHOR :    Stephan Wink        CREATED ON :    25. January 2019
+* AUTHOR :    Stephan Wink        CREATED ON :    24.01.2019
 *
-* Copyright (c) [2019] [Stephan Wink]
+* Copyright (c) [2017] [Stephan Wink]
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -26,12 +26,13 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef CONSOLESOCKET_H_
-#define CONSOLESOCKET_H_
+#ifndef WIFICTRL_H_
+#define WIFICTRL_H_
 
 /****************************************************************************************/
 /* Imported header files: */
-#include "esp_err.h"
+
+#include "wifiIf.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
@@ -42,20 +43,38 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
-typedef struct consoleSocket_parameter_tag
-{
-    void (*eventSocketError_ptrs)(void);
-
-}socketServer_parameter_t;
-
 /****************************************************************************************/
 /* Global function definitions: */
 
-extern esp_err_t consoleSocket_Initialize_st(socketServer_parameter_t *param_stp);
-extern void consoleSocket_Task_vd(void *pvParameters);
-extern void consoleSocket_Activate_vd(void);
-extern void consoleSocket_Deactivate_vd(void);
+/**---------------------------------------------------------------------------------------
+ * @brief     General initialization of wifi module. This function has to be
+ *              executed before the other ones.
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+ * @param     param_stp           wifi parameter structure
+*//*-----------------------------------------------------------------------------------*/
+extern void wifiCtrl_InitializeWifi_vd(wifiIf_eventCallB_t *param_stp);
 
+/**---------------------------------------------------------------------------------------
+ * @brief     Function to initialize WIFI to access point mode
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+*//*-----------------------------------------------------------------------------------*/
+extern void wifiCtrl_InitializeWifiSoftAp_vd(void);
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Function to initialize WIFI to station mode
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+*//*-----------------------------------------------------------------------------------*/
+extern void wifiCtrl_InitializeWifiSta_vd(void);
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Function to register WIFI commands
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+*//*-----------------------------------------------------------------------------------*/
+extern void wifiCtrl_RegisterWifiCommands(void);
 /****************************************************************************************/
 /* Global data definitions: */
 

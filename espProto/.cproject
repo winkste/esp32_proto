@@ -91,7 +91,7 @@
 							</tool>
 						</toolChain>
 					</folderInfo>
-					<fileInfo id="cdt.managedbuild.toolchain.gnu.cross.base.462279705.1021273590" name="myWifi.h" rcbsApplicability="disable" resourcePath="components/wifiCtrl/include/myWifi.h" toolsToInvoke=""/>
+					<fileInfo id="cdt.managedbuild.toolchain.gnu.cross.base.462279705.1021273590" name="myWifi.h" rcbsApplicability="disable" resourcePath="components/wifiCtrl/include/wifiCtrl.h" toolsToInvoke=""/>
 					<fileInfo id="cdt.managedbuild.toolchain.gnu.cross.base.462279705.1515407047" name="controlTask.h" rcbsApplicability="disable" resourcePath="main/controlTask.h" toolsToInvoke=""/>
 					<sourceEntries>
 						<entry excluding="frame|main/commands.h|main/commands.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>

@@ -40,14 +40,17 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "freertos/event_groups.h"
 #include "esp_log.h"
 
-#include "myWifi.h"
-#include "socketServer.h"
+#include "consoleSocket.h"
 #include "myConsole.h"
 #include "paramif.h"
-#include "myVersion.h"
 #include "otaUpdate.h"
 #include "sdkconfig.h"
-#include "../components/udpLog/include/udpLog.h"
+#include "udpLog.h"
+
+#include "wifiIf.h"
+#include "wifiCtrl.h"
+#include "wifiDrv.h"
+#include "appIdent.h"
 #include "devmgr.h"
 
 /****************************************************************************************/
@@ -119,12 +122,7 @@ static devmgr_param_t devMgrParam_st;
 esp_err_t controlTask_Initialize_st(void)
 {
     esp_err_t success_st = ESP_OK;
-    myWifi_parameter_t param_st =
-    {
-        controlTask_SetEventWifiStarted,
-        controlTask_SetEventWifiStartedSta,
-        controlTask_SetEventWifiDisconnected
-    };
+
     socketServer_parameter_t sockParam_st =
     {
         controlTask_SetEventSocketError
@@ -154,18 +152,38 @@ esp_err_t controlTask_Initialize_st(void)
     RegisterCommands();
 
     /* initialize and register Version information */
-    ESP_ERROR_CHECK(myVersion_Initialize_st());
+    ESP_ERROR_CHECK(appIdent_Initialize_st());
 
     /* setup event group for event receiving from other tasks and processes */
     controlEventGroup_sts = xEventGroupCreate();
 
+#ifdef WIFI_CTRL
+    wifiIf_eventCallB_t param_st =
+    {
+        controlTask_SetEventWifiStarted,
+        controlTask_SetEventWifiStartedSta,
+        controlTask_SetEventWifiDisconnected
+    };
     /* initialize wifi and socket server */
-    myWifi_InitializeWifi_vd(&param_st);    // 1. setup wifi in general
-    myWifi_InitializeWifiSta_vd();          // 2. start wifi in stationary mode
+    wifiCtrl_InitializeWifi_vd(&param_st);    // 1. setup wifi in general
+    wifiCtrl_InitializeWifiSta_vd();          // 2. start wifi in stationary mode
     //myWifi_InitializeWifiSoftAp_vd();     // or 2. start wifi in access point mode
-    socketServer_Initialize_st(&sockParam_st);  // 3. start the socket sever
-    myWifi_RegisterWifiCommands();              // 4. register wifi related commands
-
+    consoleSocket_Initialize_st(&sockParam_st);  // 3. start the socket sever
+    wifiCtrl_RegisterWifiCommands();              // 4. register wifi related commands
+#else
+    /* new wifi interface */
+    wifiIf_eventCallB2_t param2_st =
+    {
+            .eventCallBOnStationConn_fp = controlTask_SetEventWifiStartedSta,
+            .eventCallBackWifiDisconn_fp = controlTask_SetEventWifiDisconnected,
+            .eventCallBackWifiDisconn_fp = NULL
+    };
+    wifiDrv_InitializeParameter(&param2_st);
+    wifiDrv_Initialize_vd(&param2_st);
+    wifidrv_StartWifiDemon();
+    consoleSocket_Initialize_st(&sockParam_st);  // 3. start the socket sever
+    wifiDrv_RegisterWifiCommands_vd();
+#endif
     /* update startup counter in none volatile memory */
     ESP_ERROR_CHECK(paramif_Read_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
     controlData_sts.startupCounter_u32++;
@@ -252,7 +270,7 @@ void controlTask_Task_vd(void *pvParameters)
         {
             ESP_LOGI(TAG, "WIFI_STARTED received...");
             // activate socket server
-            socketServer_Activate_vd();
+            consoleSocket_Activate_vd();
             //udpLog_Init_st( "192.168.178.25", 1337);
         }
 
@@ -260,7 +278,7 @@ void controlTask_Task_vd(void *pvParameters)
         {
             ESP_LOGI(TAG, "WIFI_STARTED_STA received...");
             // activate socket server
-            socketServer_Activate_vd();
+            consoleSocket_Activate_vd();
             //udpLog_Init_st( "192.168.178.25", 1337);
             mqttdrv_StartMqttDemon();
         }

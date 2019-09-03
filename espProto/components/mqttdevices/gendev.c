@@ -44,8 +44,9 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "freertos/timers.h"
 
 #include "mqttif.h"
+
+#include "../../main/appIdent.h"
 #include "utils.h"
-#include "myVersion.h"
 
 /****************************************************************************************/
 /* Local constant defines */
@@ -403,7 +404,7 @@ static void SendInfoRecord_vd(void)
             strlen(singleton_sts.pubMsg_st.topic_chp);
     singleton_sts.pubMsg_st.dataLen_u32 =
             sprintf(singleton_sts.pubMsg_st.data_chp, "Firmware PN: %s",
-                                 myVersion_GetFwIdentifier_cch());
+                                 appIdent_GetFwIdentifier_cch());
     ESP_LOGD(TAG, "topic:%s, data:%s", singleton_sts.pubMsg_st.topic_chp,
                                         singleton_sts.pubMsg_st.data_chp);
     result_st = singleton_sts.param_st.publishHandler_fp(&singleton_sts.pubMsg_st,
@@ -418,7 +419,7 @@ static void SendInfoRecord_vd(void)
         singleton_sts.pubMsg_st.topicLen_u32 = strlen(singleton_sts.pubMsg_st.topic_chp);
         singleton_sts.pubMsg_st.dataLen_u32 =
                 sprintf(singleton_sts.pubMsg_st.data_chp, "Firmware Version: %s",
-                                 myVersion_GetFwVersion_cch());
+                                 appIdent_GetFwVersion_cch());
         ESP_LOGD(TAG, "topic:%s, data:%s", singleton_sts.pubMsg_st.topic_chp,
                                             singleton_sts.pubMsg_st.data_chp);
         result_st = singleton_sts.param_st.publishHandler_fp(&singleton_sts.pubMsg_st,
@@ -435,7 +436,7 @@ static void SendInfoRecord_vd(void)
         singleton_sts.pubMsg_st.topicLen_u32 = strlen(singleton_sts.pubMsg_st.topic_chp);
         singleton_sts.pubMsg_st.dataLen_u32 =
                 sprintf(singleton_sts.pubMsg_st.data_chp, "Firmware Description: %s",
-                                        myVersion_GetFwDescription_cch());
+                                        appIdent_GetFwDescription_cch());
         ESP_LOGD(TAG, "topic:%s, data:%s", singleton_sts.pubMsg_st.topic_chp,
                                             singleton_sts.pubMsg_st.data_chp);
         result_st = singleton_sts.param_st.publishHandler_fp(&singleton_sts.pubMsg_st,

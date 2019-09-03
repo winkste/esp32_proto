@@ -1,12 +1,10 @@
-/*****************************************************************************************
-* FILENAME :        socketServer.c
+/****************************************************************************************
+* FILENAME :        consoleSocket.c
 *
 * DESCRIPTION :
-*       This module handles the tcp socket connection
+*       This module handles the console tcp socket connection
 *
 * AUTHOR :    Stephan Wink        CREATED ON :    24.01.2019
-*
-* PUBLIC FUNCTIONS :
 *
 * Copyright (c) [2017] [Stephan Wink]
 *
@@ -28,12 +26,10 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *
-*****************************************************************************************/
+****************************************************************************************/
 
-/****************************************************************************************/
+/***************************************************************************************/
 /* Include Interfaces */
-#include "socketServer.h"
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -47,9 +43,10 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "stdlib.h"
 #include "string.h"
 
+#include "include/consoleSocket.h"
 #include "myConsole.h"
 
-/****************************************************************************************/
+/***************************************************************************************/
 /* Local constant defines */
 #ifndef BIT0
     #define BIT0    0x00000000
@@ -61,32 +58,32 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 #define RX_BUFFER_SIZE  5000U
 
-/****************************************************************************************/
+/***************************************************************************************/
 /* Local function like makros */
 
-/****************************************************************************************/
+/***************************************************************************************/
 /* Local type definitions (enum, struct, union) */
 
-/****************************************************************************************/
+/***************************************************************************************/
 /* Local functions prototypes: */
-static void executeTcpSocket(void);
+static void ExecuteTcpSocket(void);
 static esp_err_t ExecuteCommand(char *cmdBuffer_cp);
 static esp_err_t StartConnection(char* addr_cp, int* listenSocket_ip,
                                  char** rxBuffer_chpp);
 static void StopConnection(int sock_i, int listenSocket_i, char* rxBuffer_chp);
 static void StopSocket(int sock_i);
 
-/****************************************************************************************/
+/***************************************************************************************/
 /* Local variables: */
-static const int START_SOCKET_SERVER   = BIT0;
-static EventGroupHandle_t socketServerEventGroup_sts;
 static const char *TAG = "socketServer";
+static const int START_SOCKET_SERVER = BIT0;
+static EventGroupHandle_t socketServerEventGroup_sts;
 void (*eventSocketError_ptrs)(void);
-static TaskHandle_t * const socketServer_ptrs;
+static TaskHandle_t *const socketServer_ptrs;
 
-/****************************************************************************************/
+/***************************************************************************************/
 /* Global functions (unlimited visibility) */
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     Initialization function for socket server. This function has to
  *                  be called first.
  * @author    S. Wink
@@ -94,48 +91,50 @@ static TaskHandle_t * const socketServer_ptrs;
  * @param     param_stp             parameter set for initialization
  * @return    ESP based error code (ESP_OK)
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t socketServer_Initialize_st(socketServer_parameter_t *param_stp)
+esp_err_t consoleSocket_Initialize_st(socketServer_parameter_t *param_stp)
 {
     esp_err_t success_st = ESP_OK;
+
+    esp_log_level_set(TAG, ESP_LOG_DEBUG);
 
     ESP_LOGI(TAG, "initializing...");
     eventSocketError_ptrs = param_stp->eventSocketError_ptrs;
     socketServerEventGroup_sts = xEventGroupCreate();
-    xTaskCreate(socketServer_Task_vd, "socketServer", 4096, NULL, 5, socketServer_ptrs);
+    xTaskCreate(consoleSocket_Task_vd, "socketServer", 4096, NULL, 5, socketServer_ptrs);
     ESP_LOGI(TAG, "task created...");
 
     return(success_st);
 }
 
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     Activates the socket server
  * @author    S. Wink
  * @date      24. Jan. 2019
 *//*-----------------------------------------------------------------------------------*/
-void socketServer_Activate_vd(void)
+void consoleSocket_Activate_vd(void)
 {
     ESP_LOGI(TAG, "set START_SOCKET_SERVER event...");
     xEventGroupSetBits(socketServerEventGroup_sts, START_SOCKET_SERVER);
 }
 
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     Deactivates the socket server
  * @author    S. Wink
  * @date      24. Jan. 2019
 *//*-----------------------------------------------------------------------------------*/
-void socketServer_Deactivate_vd(void)
+void consoleSocket_Deactivate_vd(void)
 {
     ESP_LOGI(TAG, "delete socket server...");
     vTaskDelete(socketServer_ptrs);
 }
 
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     Task function of socket server
  * @author    S. Wink
  * @date      24. Jan. 2019
  * @param     pvParameters      parameter set, interface defined from freertos
 *//*-----------------------------------------------------------------------------------*/
-void socketServer_Task_vd(void *pvParameters)
+void consoleSocket_Task_vd(void *pvParameters)
 {
     uint32_t bits = START_SOCKET_SERVER;
     EventBits_t uxBits_st;
@@ -149,21 +148,20 @@ void socketServer_Task_vd(void *pvParameters)
         if(0 != (uxBits_st & START_SOCKET_SERVER))
         {
             ESP_LOGI(TAG, "START_SOCKET_SERVER received...");
-            executeTcpSocket();
+            ExecuteTcpSocket();
 
         }
     }
 }
 
-
-/****************************************************************************************/
+/***************************************************************************************/
 /* Local functions: */
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     executes the server connection
  * @author    S. Wink
  * @date      24. Jan. 2019
 *//*-----------------------------------------------------------------------------------*/
-static void executeTcpSocket(void)
+static void ExecuteTcpSocket(void)
 {
     int32_t listenSock_s32;
     int32_t workSock_s32;
@@ -183,7 +181,8 @@ static void executeTcpSocket(void)
     while (1)
     {
         ESP_LOGI(TAG, "Start accepting connections");
-        workSock_s32 = accept(listenSock_s32, (struct sockaddr *)&sourceAddr_st, &addrLen_st);
+        workSock_s32 = accept(listenSock_s32, (struct sockaddr *)&sourceAddr_st,
+                                &addrLen_st);
         if (workSock_s32 < 0) {
             ESP_LOGE(TAG, "Unable to accept connection: errno %d", errno); // @suppress("Symbol is not resolved")
             break;
@@ -251,7 +250,7 @@ static void executeTcpSocket(void)
     ESP_LOGE(TAG, "stop socket execution...");
 }
 
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     executes the received command
  * @author    S. Wink
  * @date      24. Jan. 2019
@@ -299,7 +298,7 @@ static esp_err_t ExecuteCommand(char *cmdBuffer_cp)
     return(cmdExeResult_st);
 }
 
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     starts a socket connection
  * @author    S. Wink
  * @date      24. Jan. 2019
@@ -308,7 +307,8 @@ static esp_err_t ExecuteCommand(char *cmdBuffer_cp)
  * @param     rxBuffer_chpp   pointer to pointer of the allocated receive buffer
  * @return    returns ESP_OK if success, in all other cases ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t StartConnection(char* addr_cp, int* listenSocket_ip, char** rxBuffer_chpp)
+static esp_err_t StartConnection(char* addr_cp, int* listenSocket_ip,
+                                    char** rxBuffer_chpp)
 {
     int err;
     int addr_family;
@@ -373,7 +373,7 @@ static esp_err_t StartConnection(char* addr_cp, int* listenSocket_ip, char** rxB
     return(ESP_OK);
 }
 
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     stops the socket connection
  * @author    S. Wink
  * @date      24. Jan. 2019
@@ -394,7 +394,7 @@ static void StopConnection(int sock_i, int listenSocket_i, char* rxBuffer_chp)
     return;
 }
 
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     stops the socket connection
  * @author    S. Wink
  * @date      24. Jan. 2019

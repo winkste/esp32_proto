@@ -1,14 +1,12 @@
 /*****************************************************************************************
-* FILENAME :        myWifi.h
+* FILENAME :        wifiIf.h
 *
 * DESCRIPTION :
-*      Header file for wifi control module
+*      Interface module for wifiCtrl
 *
-* Date: 24. January 2019
+* AUTHOR :    Stephan Wink        CREATED ON :    21.08.2019
 *
-* NOTES :
-*
-* Copyright (c) [2019] [Stephan Wink]
+* Copyright (c) [2017] [Stephan Wink]
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -28,11 +26,12 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef MAIN_MYWIFI_H_
-#define MAIN_MYWIFI_H_
+#ifndef WIFIIF_H_
+#define WIFIIF_H_
 
 /****************************************************************************************/
 /* Imported header files: */
+#include "esp_wifi.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
@@ -42,45 +41,49 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
-typedef struct myWifi_parameter_tag
+typedef struct wifiIf_eventCallB_tag
 {
-    void (*eventWifiStarted_ptrs)(void);
-    void (*eventWifiStartedSta_ptrs)(void);
-    void (*eventWifiDisconnected_ptrs)(void);
-}myWifi_parameter_t;
+    void (*eventCallBackOnAPStarted_ptrs)(void);
+    void (*eventCallBackOnStationStarted_ptrs)(void);
+    void (*eventCallBackWifiDisconn_ptrs)(void);
+}wifiIf_eventCallB_t;
+
+typedef struct wifiIf_eventCallB2_tag
+{
+    void (*eventCallBOnClientConn_fp)(void);
+    void (*eventCallBOnStationConn_fp)(void);
+    void (*eventCallBackWifiDisconn_fp)(void);
+}wifiIf_eventCallB2_t;
+
+typedef struct wifiIf_callBackStation_tag
+{
+    //void (*callBackStationConStarted_fp)(void);
+    void (*callBackStationConnected_fp)(void);
+    void (*callBackStationDisconn_fp)(void);
+}wifiIf_callBackStation_t;
+
+typedef struct wifiIf_callBackAp_tag
+{
+    void (*callBackClientConnected_fp)(void);
+    void (*callBackClientDisconn_fp)(void);
+}wifiIf_callBackAp_t;
+
+typedef struct wifiIf_setStation_tag
+{
+     wifi_config_t wifiSettings_st;
+     wifiIf_callBackStation_t wifiCallBacks_st;
+}wifiIf_setStation_t;
+
+typedef struct wifiIf_setAp_tag
+{
+     wifi_config_t wifiSettings_st;
+     wifiIf_callBackAp_t wifiCallBacks_st;
+}wifiIf_setAp_t;
+
 /****************************************************************************************/
 /* Global function definitions: */
 
-/**---------------------------------------------------------------------------------------
- * @brief     General initialization of wifi module. This function has to be
- *              executed before the other ones.
- * @author    S. Wink
- * @date      24. Jan. 2019
- * @param     param_stp           wifi parameter structure
-*//*-----------------------------------------------------------------------------------*/
-extern void myWifi_InitializeWifi_vd(myWifi_parameter_t *param_stp);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Function to initialize WIFI to access point mode
- * @author    S. Wink
- * @date      24. Jan. 2019
-*//*-----------------------------------------------------------------------------------*/
-extern void myWifi_InitializeWifiSoftAp_vd(void);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Function to initialize WIFI to station mode
- * @author    S. Wink
- * @date      24. Jan. 2019
-*//*-----------------------------------------------------------------------------------*/
-extern void myWifi_InitializeWifiSta_vd(void);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Function to register WIFI commands
- * @author    S. Wink
- * @date      24. Jan. 2019
-*//*-----------------------------------------------------------------------------------*/
-extern void myWifi_RegisterWifiCommands(void);
 /****************************************************************************************/
 /* Global data definitions: */
 
-#endif /* MAIN_MYWIFI_H_ */
+#endif

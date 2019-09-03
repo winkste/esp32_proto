@@ -1,12 +1,13 @@
 /*****************************************************************************************
-* FILENAME :        myVersion.c
+* FILENAME :        appIdent.c
 *
 * DESCRIPTION :
-*       This module
+*       This module holds the firmware identification strings and implements
+*       an interface to these strings by access functions.
+*
+* NOTES : N/A
 *
 * AUTHOR :    Stephan Wink        CREATED ON :    08.03.2019
-*
-* PUBLIC FUNCTIONS :
 *
 * Copyright (c) [2017] [Stephan Wink]
 *
@@ -28,15 +29,14 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *
-* REF NO  VERSION DATE    WHO     DETAIL
-* 000       08.03         SWI     initial revisioned version
 *****************************************************************************************/
 
 /****************************************************************************************/
 /* Include Interfaces */
 
-#include"myVersion.h"
+#include "appIdent.h"
 
+#include "stdint.h"
 #include "esp_log.h"
 #include "esp_err.h"
 
@@ -54,8 +54,8 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 /****************************************************************************************/
 /* Local functions prototypes: */
-static void RegisterCommands(void);
-static int cmdVersionHandler_i(int argc, char** argv);
+static void RegisterCommands_vd(void);
+static int32_t cmdVersionHandler_s32(int32_t argc_s32, char** argv_cpp);
 
 /****************************************************************************************/
 /* Local variables: */
@@ -71,16 +71,16 @@ static const char *FW_DESCRIPTION   = "prototype firmware for esp32";
 /**---------------------------------------------------------------------------------------
  * @brief     Initialization function for myVersion
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t myVersion_Initialize_st(void)
+esp_err_t appIdent_Initialize_st(void)
 {
-    RegisterCommands();
+    RegisterCommands_vd();
     return(ESP_OK);
 }
 
 /**---------------------------------------------------------------------------------------
  * @brief     Provides read access to the firmware identifier
 *//*-----------------------------------------------------------------------------------*/
-const char * myVersion_GetFwIdentifier_cch(void)
+const char * appIdent_GetFwIdentifier_cch(void)
 {
     return(FW_IDENTIFIER);
 }
@@ -88,7 +88,7 @@ const char * myVersion_GetFwIdentifier_cch(void)
 /**---------------------------------------------------------------------------------------
  * @brief     Provides read access to the firmware version
 *//*-----------------------------------------------------------------------------------*/
-const char * myVersion_GetFwVersion_cch(void)
+const char * appIdent_GetFwVersion_cch(void)
 {
     return(FW_VERSION);
 }
@@ -96,7 +96,7 @@ const char * myVersion_GetFwVersion_cch(void)
 /**---------------------------------------------------------------------------------------
  * @brief     Provides read access to the firmware description
 *//*-----------------------------------------------------------------------------------*/
-const char * myVersion_GetFwDescription_cch(void)
+const char * appIdent_GetFwDescription_cch(void)
 {
     return(FW_DESCRIPTION);
 }
@@ -109,12 +109,12 @@ const char * myVersion_GetFwDescription_cch(void)
  * @author    S. Wink
  * @date      24. Jan. 2019
 *//*-----------------------------------------------------------------------------------*/
-static void RegisterCommands(void)
+static void RegisterCommands_vd(void)
 {
         const myConsole_cmd_t versionCmd = {
         .command = "ver",
         .help = "Get version information",
-        .func = &cmdVersionHandler_i,
+        .func = &cmdVersionHandler_s32,
     };
 
     ESP_ERROR_CHECK(myConsole_CmdRegister_td(&versionCmd));
@@ -124,11 +124,11 @@ static void RegisterCommands(void)
  * @brief     Handler for console command to printout control information
  * @author    S. Wink
  * @date      24. Jan. 2019
- * @param     argc  count of argument list
- * @param     argv  pointer to argument list
+ * @param     argc_s32  count of argument list
+ * @param     argv_cpp  pointer to argument list
  * @return    not equal to zero if error detected
 *//*-----------------------------------------------------------------------------------*/
-static int cmdVersionHandler_i(int argc, char** argv)
+static int32_t cmdVersionHandler_s32(int32_t argc_s32, char** argv_cpp)
 {
     ESP_LOGI(TAG, "version request command received");
 
