@@ -35,6 +35,8 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 /****************************************************************************************/
 /* Global constant defines: */
+#define wifiIf_SIZE_OF_SSID_VECTOR         32U
+#define wifiIf_SIZE_OF_PASSWORD            64U
 
 /****************************************************************************************/
 /* Global function like macro defines (to be avoided): */
