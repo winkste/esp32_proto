@@ -177,6 +177,19 @@ bool utils_CheckAndLogExecution_bol(const char *file_ccp, esp_err_t exeCode_st,
     return(ESP_OK == exeCode_st);
 }
 
+/**--------------------------------------------------------------------------------------
+ * @brief     Change the state of the internal object based on the wifi state
+*//*-----------------------------------------------------------------------------------*/
+void utils_CheckAndLogExec_vd(const char *file_ccp, esp_err_t exeCode_st,
+                                        uint32_t line_u32)
+{
+    if(ESP_OK != exeCode_st)
+    {
+        ESP_LOGE(file_ccp, "bad function error code returned in line: %d, error code: %d",
+                    exeCode_st, line_u32);
+    }
+}
+
 /****************************************************************************************/
 /* Private functions: */
 

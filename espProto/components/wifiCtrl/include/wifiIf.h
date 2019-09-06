@@ -43,44 +43,14 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
-typedef struct wifiIf_eventCallB_tag
-{
-    void (*eventCallBackOnAPStarted_ptrs)(void);
-    void (*eventCallBackOnStationStarted_ptrs)(void);
-    void (*eventCallBackWifiDisconn_ptrs)(void);
-}wifiIf_eventCallB_t;
 
-typedef struct wifiIf_eventCallB2_tag
+typedef void (*wifiIf_ServiceHandler_fcp)(void);
+typedef struct wifiIf_serviceRegEntry_tag
 {
-    void (*eventCallBOnClientConn_fp)(void);
-    void (*eventCallBOnStationConn_fp)(void);
-    void (*eventCallBackWifiDisconn_fp)(void);
-}wifiIf_eventCallB2_t;
-
-typedef struct wifiIf_callBackStation_tag
-{
-    //void (*callBackStationConStarted_fp)(void);
-    void (*callBackStationConnected_fp)(void);
-    void (*callBackStationDisconn_fp)(void);
-}wifiIf_callBackStation_t;
-
-typedef struct wifiIf_callBackAp_tag
-{
-    void (*callBackClientConnected_fp)(void);
-    void (*callBackClientDisconn_fp)(void);
-}wifiIf_callBackAp_t;
-
-typedef struct wifiIf_setStation_tag
-{
-     wifi_config_t wifiSettings_st;
-     wifiIf_callBackStation_t wifiCallBacks_st;
-}wifiIf_setStation_t;
-
-typedef struct wifiIf_setAp_tag
-{
-     wifi_config_t wifiSettings_st;
-     wifiIf_callBackAp_t wifiCallBacks_st;
-}wifiIf_setAp_t;
+        wifiIf_ServiceHandler_fcp OnStationConncetion_fcp;
+        wifiIf_ServiceHandler_fcp OnDisconncetion_fcp;
+        wifiIf_ServiceHandler_fcp OnClientConnection_fcp;
+}wifiIf_serviceRegEntry_t;
 
 /****************************************************************************************/
 /* Global function definitions: */

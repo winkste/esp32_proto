@@ -45,11 +45,11 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "paramif.h"
 #include "otaUpdate.h"
 #include "sdkconfig.h"
+
 #include "udpLog.h"
 
 #include "wifiIf.h"
 #include "wifiCtrl.h"
-#include "wifiDrv.h"
 #include "appIdent.h"
 #include "devmgr.h"
 
@@ -157,7 +157,7 @@ esp_err_t controlTask_Initialize_st(void)
     /* setup event group for event receiving from other tasks and processes */
     controlEventGroup_sts = xEventGroupCreate();
 
-#ifdef WIFI_CTRL
+#ifdef TEST_SWI
     wifiIf_eventCallB_t param_st =
     {
         controlTask_SetEventWifiStarted,
@@ -170,20 +170,21 @@ esp_err_t controlTask_Initialize_st(void)
     //myWifi_InitializeWifiSoftAp_vd();     // or 2. start wifi in access point mode
     consoleSocket_Initialize_st(&sockParam_st);  // 3. start the socket sever
     wifiCtrl_RegisterWifiCommands();              // 4. register wifi related commands
-#else
-    /* new wifi interface */
-    wifiIf_eventCallB2_t param2_st =
-    {
-            .eventCallBOnStationConn_fp = controlTask_SetEventWifiStartedSta,
-            .eventCallBackWifiDisconn_fp = controlTask_SetEventWifiDisconnected,
-            .eventCallBackWifiDisconn_fp = NULL
-    };
-    wifiDrv_InitializeParameter(&param2_st);
-    wifiDrv_Initialize_vd(&param2_st);
-    wifidrv_StartWifiDemon();
-    consoleSocket_Initialize_st(&sockParam_st);  // 3. start the socket sever
-    wifiDrv_RegisterWifiCommands_vd();
 #endif
+
+    wifiIf_serviceRegEntry_t services_st =
+    {
+        controlTask_SetEventWifiStarted,
+        controlTask_SetEventWifiStartedSta,
+        controlTask_SetEventWifiDisconnected
+    };
+    wifiCtrl_Initialize_vd(&services_st);
+    wifiCtrl_Start_vd();
+    wifiCtrl_RegisterWifiCommands();
+
+    consoleSocket_Initialize_st(&sockParam_st);  // 3. start the socket sever
+
+
     /* update startup counter in none volatile memory */
     ESP_ERROR_CHECK(paramif_Read_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
     controlData_sts.startupCounter_u32++;
@@ -270,7 +271,7 @@ void controlTask_Task_vd(void *pvParameters)
         {
             ESP_LOGI(TAG, "WIFI_STARTED received...");
             // activate socket server
-            consoleSocket_Activate_vd();
+            //consoleSocket_Activate_vd();
             //udpLog_Init_st( "192.168.178.25", 1337);
         }
 

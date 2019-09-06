@@ -51,23 +51,23 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  *              executed before the other ones.
  * @author    S. Wink
  * @date      24. Jan. 2019
- * @param     param_stp           wifi parameter structure
+ * @param     service_stp           wifi service callback
 *//*-----------------------------------------------------------------------------------*/
-extern void wifiCtrl_InitializeWifi_vd(wifiIf_eventCallB_t *param_stp);
+extern void wifiCtrl_Initialize_vd(wifiIf_serviceRegEntry_t *service_stp);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Function to initialize WIFI to access point mode
+ * @brief     Function to start the wifi 
  * @author    S. Wink
  * @date      24. Jan. 2019
 *//*-----------------------------------------------------------------------------------*/
-extern void wifiCtrl_InitializeWifiSoftAp_vd(void);
+extern void wifiCtrl_Start_vd(void);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Function to initialize WIFI to station mode
+ * @brief     Function to stop the wifi 
  * @author    S. Wink
  * @date      24. Jan. 2019
 *//*-----------------------------------------------------------------------------------*/
-extern void wifiCtrl_InitializeWifiSta_vd(void);
+extern void wifiCtrl_Stop_vd(void);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Function to register WIFI commands

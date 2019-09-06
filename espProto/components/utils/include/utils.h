@@ -172,6 +172,17 @@ extern uint16_t utils_CalcLogDigitsFromPercentWMax_u16(uint8_t percent_u8,
 extern bool utils_CheckAndLogExecution_bol(const char *file_ccp, esp_err_t exeCode_st,
                                         uint32_t line_u32);
 
+/**--------------------------------------------------------------------------------------
+ * @brief     Change the state of the internal object based on the wifi state
+ * @author    S. Wink
+ * @date      28. Aug. 2019
+ * @param     file_ccp    name of the file where the check is executed
+ * @param     exeCode_st  the returned standard execution code
+ * @param     line_u32    the line of code where the execution was done
+*//*-----------------------------------------------------------------------------------*/
+extern void utils_CheckAndLogExec_vd(const char *file_ccp, esp_err_t exeCode_st,
+                                        uint32_t line_u32);
+
 /****************************************************************************************/
 /* Global data definitions: */
 #endif

@@ -46,6 +46,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "argtable3/argtable3.h"
 #include "myConsole.h"
 #include "paramif.h"
+#include "utils.h"
 
 #include "sdkconfig.h"
 #include "wifiIf.h"
@@ -62,6 +63,9 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #define MAXIMUM_AP_CONNECTIONS      2
 #define SIZE_OF_SSID_VECTOR         32
 #define SIZE_OF_PASSWORD            64
+#define MODULE_TAG                  "wifiCtrl"
+
+#define CHECK_EXE(arg) utils_CheckAndLogExec_vd(MODULE_TAG, arg, __LINE__)
 
 /***************************************************************************************/
 /* Local function like makros */
@@ -77,29 +81,34 @@ typedef struct wifiParam_tag
 
 /***************************************************************************************/
 /* Local functions prototypes: */
+static void StartAccessPoint_vd(void);
+static void ConnectToStation_vd(void);
+
 static int32_t CmdHandlerStartStationMode_s32(int32_t argc_s32, char** argv);
 static int32_t CmdHandlerStartAPMode_s32(int32_t argc_s32, char** argv);
 static int32_t CmdHandlerChangeParameter_s32(int32_t argc_s32, char** argv);
+
 static esp_err_t EventHandler_st(void *ctx_vp, system_event_t *event_stp);
 static esp_err_t HandleStationStartRequestEvent_st(system_event_t *event);
 static esp_err_t HandleStationConnectedEvent_st(system_event_t *event);
-static esp_err_t HandleStationGotIpEvent_st(system_event_t *event);
 static esp_err_t HandleStationGotIp6Event_st(system_event_t *event);
 static esp_err_t HandleWifiStationDisconnect_st(system_event_t *event);
 static esp_err_t HandleWifiClientConnected_st(system_event_t *event);
 static esp_err_t HandleWifiClientDisConnected_st(system_event_t *event);
 static esp_err_t HandleUnexpectedWifiEvent_st(system_event_t *event);
 
+static void HandleConnectionTimeout_vd(TimerHandle_t xTimer);
+
 /***************************************************************************************/
 /* Local variables: */
-static const char *TAG = "myWifi";
+static const char *TAG = MODULE_TAG;
 
 static EventGroupHandle_t wifiEventGroup_sts;
+static TimerHandle_t timer_sst;
+
 static uint8_t retryConnectCounter_u8st = 0U;
 
-static void (*eventWifiStarted_ptrs)(void);
-static void (*eventWifiStartedSta_ptrs)(void);
-static void (*eventWifiDisconnected_ptrs)(void);
+static wifiIf_serviceRegEntry_t service_sst;
 
 static wifi_config_t stationWifiSettings_sts =
 {
@@ -146,88 +155,61 @@ static const wifiPrarm_t defaultParam_stsc =
  * @brief     General initialization of wifi module. This function has to be
  *              executed before the other ones.
 *//*-----------------------------------------------------------------------------------*/
-void wifiCtrl_InitializeWifi_vd(wifiIf_eventCallB_t *param_stp)
+void wifiCtrl_Initialize_vd(wifiIf_serviceRegEntry_t *service_stp)
 {
     paramif_allocParam_t wifiAllocParam_st;
     wifi_init_config_t cfg_st = WIFI_INIT_CONFIG_DEFAULT();
 
     esp_log_level_set("phy_init", ESP_LOG_INFO);
 
-    eventWifiStarted_ptrs = param_stp->eventCallBackOnAPStarted_ptrs;
-    eventWifiStartedSta_ptrs = param_stp->eventCallBackOnStationStarted_ptrs;
-    eventWifiDisconnected_ptrs = param_stp->eventCallBackWifiDisconn_ptrs;
+    memcpy(&service_sst, service_stp, sizeof(service_sst));
 
     tcpip_adapter_init();
     wifiEventGroup_sts = xEventGroupCreate();
-    ESP_ERROR_CHECK(esp_event_loop_init(EventHandler_st, NULL));
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg_st));
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+    CHECK_EXE(esp_event_loop_init(EventHandler_st, NULL));
+    CHECK_EXE(esp_wifi_init(&cfg_st));
+    CHECK_EXE(esp_wifi_set_storage(WIFI_STORAGE_RAM));
 
-    ESP_ERROR_CHECK(paramif_InitializeAllocParameter_td(&wifiAllocParam_st));
+    CHECK_EXE(paramif_InitializeAllocParameter_td(&wifiAllocParam_st));
     wifiAllocParam_st.length_u16 = sizeof(defaultParam_stsc);
     wifiAllocParam_st.defaults_u8p = (uint8_t *)&defaultParam_stsc;
     wifiAllocParam_st.nvsIdent_cp = WIFI_PARA_IDENT;
     wifiParaHdl_xps = paramif_Allocate_stp(&wifiAllocParam_st);
     paramif_PrintHandle_vd(wifiParaHdl_xps);
-    ESP_ERROR_CHECK(paramif_Read_td(wifiParaHdl_xps, (uint8_t *) &wifiParam_sts));
+    CHECK_EXE(paramif_Read_td(wifiParaHdl_xps, (uint8_t *) &wifiParam_sts));
     ESP_LOGI(TAG, "loaded parameter from nvs, ssid: %s, pwd: %s",
             wifiParam_sts.ssid,
             wifiParam_sts.password);
 }
 
-/**--------------------------------------------------------------------------------------
- * @brief     Function to initialize WIFI to access point mode
+/**---------------------------------------------------------------------------------------
+ * @brief     Function to start the wifi controlling
 *//*-----------------------------------------------------------------------------------*/
-void wifiCtrl_InitializeWifiSoftAp_vd(void)
+void wifiCtrl_Start_vd(void)
 {
-    ESP_ERROR_CHECK(esp_wifi_stop());
-    ESP_ERROR_CHECK(esp_wifi_deinit());
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &apWifiSettings_sts));
-    ESP_ERROR_CHECK(esp_wifi_start());
     retryConnectCounter_u8st = 0U;
-
-    ESP_LOGI(TAG, "wifi_init_softap finished.SSID:%s password:%s",
-             DEFAULT_WIFI_SSID_AP, DEFAULT_WIFI_PASS_AP);
+    timer_sst = xTimerCreate("WIFI_Timeout", pdMS_TO_TICKS(10000), false,
+                                                (void *) 0, HandleConnectionTimeout_vd);
+    if(NULL != timer_sst)
+    {
+        xTimerStart(timer_sst, 0);
+    }
+                                                    
+    ConnectToStation_vd();
 }
 
-/**--------------------------------------------------------------------------------------
- * @brief     Function to initialize WIFI to station mode
+/**---------------------------------------------------------------------------------------
+ * @brief     Function to stop the wifi 
 *//*-----------------------------------------------------------------------------------*/
-void wifiCtrl_InitializeWifiSta_vd(void)
+extern void wifiCtrl_Stop_vd(void)
 {
-    //paramif_PrintHandle_vd(wifiParaHdl_xps);
-    ESP_ERROR_CHECK(paramif_Read_td(wifiParaHdl_xps, (uint8_t *) &wifiParam_sts));
-    ESP_LOGI(TAG, "loaded parameter from nvs, ssid: %s, pwd: %s",
-                wifiParam_sts.ssid,
-                wifiParam_sts.password);
-    memset(stationWifiSettings_sts.sta.ssid, 0,
-            sizeof(stationWifiSettings_sts.sta.ssid));
-    memcpy(&stationWifiSettings_sts.sta.ssid[0],
-            &wifiParam_sts.ssid[0],
-            sizeof(stationWifiSettings_sts.sta.ssid));
-    memset(stationWifiSettings_sts.sta.password, 0,
-            sizeof(stationWifiSettings_sts.sta.password));
-    memcpy(&stationWifiSettings_sts.sta.password[0],
-            &wifiParam_sts.password[0],
-            sizeof(stationWifiSettings_sts.sta.password));
-
-    ESP_ERROR_CHECK(esp_wifi_stop());
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &stationWifiSettings_sts));
-    ESP_ERROR_CHECK(esp_wifi_start() );
-
-    ESP_LOGI(TAG, "wifi_init_sta finished.");
-    ESP_LOGI(TAG, "connect to ap SSID:%s password:%s",
-             DEFAULT_WIFI_SSID_STA, DEFAULT_WIFI_PASS_STA);
+    // disconnect wifi
+    //stop wifi
+    // de-initialize wifi
 }
 
 /**--------------------------------------------------------------------------------------
  * @brief     Function to initialize WIFI to station mode
- * @author    S. Wink
- * @date      24. Jan. 2019
 *//*-----------------------------------------------------------------------------------*/
 void wifiCtrl_RegisterWifiCommands(void)
 {
@@ -245,7 +227,7 @@ void wifiCtrl_RegisterWifiCommands(void)
         .argtable = &cmdArgsStation_sts
     };
 
-    ESP_ERROR_CHECK(myConsole_CmdRegister_td(&paramCmd));
+    CHECK_EXE(myConsole_CmdRegister_td(&paramCmd));
 
     const myConsole_cmd_t accessPointCmd = {
         .command = "ap",
@@ -253,7 +235,7 @@ void wifiCtrl_RegisterWifiCommands(void)
         .func = &CmdHandlerStartAPMode_s32,
     };
 
-    ESP_ERROR_CHECK(myConsole_CmdRegister_td(&accessPointCmd));
+    CHECK_EXE(myConsole_CmdRegister_td(&accessPointCmd));
 
     const myConsole_cmd_t stationCmd = {
             .command = "stat",
@@ -268,6 +250,59 @@ void wifiCtrl_RegisterWifiCommands(void)
 /* Local functions: */
 
 /**--------------------------------------------------------------------------------------
+ * @brief     Function to initialize WIFI to access point mode
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+*//*-----------------------------------------------------------------------------------*/
+static void StartAccessPoint_vd(void)
+{
+    CHECK_EXE(esp_wifi_stop());
+    CHECK_EXE(esp_wifi_stop());
+    CHECK_EXE(esp_wifi_deinit());
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    CHECK_EXE(esp_wifi_init(&cfg));
+    CHECK_EXE(esp_wifi_set_mode(WIFI_MODE_AP));
+    CHECK_EXE(esp_wifi_set_config(ESP_IF_WIFI_AP, &apWifiSettings_sts));
+    CHECK_EXE(esp_wifi_start());
+    retryConnectCounter_u8st = 0U;
+
+    ESP_LOGI(TAG, "wifi_init_softap finished.SSID:%s password:%s",
+             DEFAULT_WIFI_SSID_AP, DEFAULT_WIFI_PASS_AP);
+}
+
+/**--------------------------------------------------------------------------------------
+ * @brief     Function to initialize WIFI to station mode
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+*//*-----------------------------------------------------------------------------------*/
+static void ConnectToStation_vd(void)
+{
+    CHECK_EXE(paramif_Read_td(wifiParaHdl_xps,  (uint8_t *) &wifiParam_sts));
+    ESP_LOGI(TAG, "loaded parameter from nvs, ssid: %s, pwd: %s",
+                wifiParam_sts.ssid,
+                wifiParam_sts.password);
+    memset(stationWifiSettings_sts.sta.ssid, 0,
+            sizeof(stationWifiSettings_sts.sta.ssid));
+    memcpy(&stationWifiSettings_sts.sta.ssid[0],
+            &wifiParam_sts.ssid[0],
+            sizeof(stationWifiSettings_sts.sta.ssid));
+    memset(stationWifiSettings_sts.sta.password, 0,
+            sizeof(stationWifiSettings_sts.sta.password));
+    memcpy(&stationWifiSettings_sts.sta.password[0],
+            &wifiParam_sts.password[0],
+            sizeof(stationWifiSettings_sts.sta.password));
+
+    CHECK_EXE(esp_wifi_stop());
+    CHECK_EXE(esp_wifi_set_mode(WIFI_MODE_STA));
+    CHECK_EXE(esp_wifi_set_config(ESP_IF_WIFI_STA, &stationWifiSettings_sts));
+    CHECK_EXE(esp_wifi_start());
+
+    ESP_LOGI(TAG, "wifi_init_sta finished.");
+    ESP_LOGI(TAG, "connect to ap SSID:%s password:%s",
+             DEFAULT_WIFI_SSID_STA, DEFAULT_WIFI_PASS_STA);
+}
+
+/**--------------------------------------------------------------------------------------
  * @brief     Handler for console command start station mode
  * @author    S. Wink
  * @date      24. Jan. 2019
@@ -277,7 +312,7 @@ void wifiCtrl_RegisterWifiCommands(void)
 *//*-----------------------------------------------------------------------------------*/
 static int32_t CmdHandlerStartStationMode_s32(int32_t argc_s32, char** argv)
 {
-    wifiCtrl_InitializeWifiSta_vd();
+    ConnectToStation_vd();
     return 0;
 }
 
@@ -291,7 +326,7 @@ static int32_t CmdHandlerStartStationMode_s32(int32_t argc_s32, char** argv)
 *//*-----------------------------------------------------------------------------------*/
 static int32_t CmdHandlerStartAPMode_s32(int32_t argc_s32, char** argv)
 {
-    wifiCtrl_InitializeWifiSoftAp_vd();
+    StartAccessPoint_vd();
     return 0;
 }
 
@@ -305,8 +340,9 @@ static int32_t CmdHandlerStartAPMode_s32(int32_t argc_s32, char** argv)
 *//*-----------------------------------------------------------------------------------*/
 static int32_t CmdHandlerChangeParameter_s32(int32_t argc_s32, char** argv)
 {
-    int nerrors_i = arg_parse(argc_s32, argv, (void**) &cmdArgsStation_sts);
-    if (nerrors_i != 0) {
+    int32_t nerrors_s32 = arg_parse(argc_s32, argv, (void**) &cmdArgsStation_sts);
+
+    if (nerrors_s32 != 0) {
         arg_print_errors(stderr, cmdArgsStation_sts.end_stp, argv[0]);
         return 1;
     }
@@ -344,9 +380,6 @@ static esp_err_t EventHandler_st(void *ctx_vp, system_event_t *event_stp)
     case SYSTEM_EVENT_STA_CONNECTED:
         result_st = HandleStationConnectedEvent_st(event_stp);
         break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        result_st = HandleStationGotIpEvent_st(event_stp);
-        break;
     case SYSTEM_EVENT_AP_STA_GOT_IP6:
         result_st = HandleStationGotIp6Event_st(event_stp);
         break;
@@ -364,6 +397,8 @@ static esp_err_t EventHandler_st(void *ctx_vp, system_event_t *event_stp)
         break;
     }
 
+    CHECK_EXE(result_st);
+
     return(result_st);
 }
 
@@ -376,10 +411,12 @@ static esp_err_t EventHandler_st(void *ctx_vp, system_event_t *event_stp)
 *//*-----------------------------------------------------------------------------------*/
 static esp_err_t HandleStationStartRequestEvent_st(system_event_t *event)
 {
-    ESP_LOGI(TAG, "SYSTEM_EVENT_STA_START event received...");
-    esp_wifi_connect();
+    esp_err_t result_st = ESP_OK;
 
-    return(ESP_OK);
+    ESP_LOGI(TAG, "SYSTEM_EVENT_STA_START event received...");
+    result_st = esp_wifi_connect();
+
+    return(result_st);
 }
 
 /**--------------------------------------------------------------------------------------
@@ -399,20 +436,6 @@ static esp_err_t HandleStationConnectedEvent_st(system_event_t *event)
 }
 
 /**--------------------------------------------------------------------------------------
- * @brief     Event function for wifi station successful got ip
- * @author    S. Wink
- * @date      25. Jul. 2019
- * @param     event     the received event
- * @return    a esp_err_t based error code, currently only ESP_OK
-*//*-----------------------------------------------------------------------------------*/
-static esp_err_t HandleStationGotIpEvent_st(system_event_t *event)
-{
-    ESP_LOGI(TAG, "SYSTEM_EVENT_STA_GOT_IP event received...");
-
-    return(ESP_OK);
-}
-
-/**--------------------------------------------------------------------------------------
  * @brief     Event function for wifi station successful got ip 6
  * @author    S. Wink
  * @date      25. Jul. 2019
@@ -426,11 +449,16 @@ static esp_err_t HandleStationGotIp6Event_st(system_event_t *event)
     ESP_LOGI(TAG, "SYSTEM_EVENT_STA_GOT_IP6 event received...");
     ESP_LOGI(TAG, "IPv6: %s", ip6);
 
-    // execute the assigned wifi started callback function
-    if(NULL != eventWifiStarted_ptrs)
+    if(NULL != timer_sst)
     {
-        (*eventWifiStartedSta_ptrs)();
-        ESP_LOGI(TAG, "callBack function for wifi start executed...");
+        xTimerStop(timer_sst, 0);
+    }
+
+    // execute the assigned wifi started callback function
+    if(NULL != service_sst.OnStationConncetion_fcp)
+    {
+        service_sst.OnStationConncetion_fcp();
+        ESP_LOGI(TAG, "callBack function for wifi station connection executed...");
     }
 
     return(ESP_OK);
@@ -445,29 +473,40 @@ static esp_err_t HandleStationGotIp6Event_st(system_event_t *event)
 *//*-----------------------------------------------------------------------------------*/
 static esp_err_t HandleWifiStationDisconnect_st(system_event_t *event)
 {
+    esp_err_t result_st = ESP_OK;
+
     ESP_LOGI(TAG, "SYSTEM_EVENT_STA_DISCONNECTED event received...");
+
+    if(NULL != timer_sst)
+    {
+        xTimerStop(timer_sst, 0);
+    }
 
     if(MAXIMUM_CONN_RETRIES > retryConnectCounter_u8st)
     {
-        if(NULL != eventWifiDisconnected_ptrs)
+        if(NULL != service_sst.OnDisconncetion_fcp)
         {
-            (*eventWifiDisconnected_ptrs)();
+            service_sst.OnDisconncetion_fcp();
         }
         /* This is a workaround as ESP32 WiFi libs don't currently
         auto-reassociate.*/
-        esp_wifi_connect();
+        result_st = esp_wifi_connect();
         ESP_LOGI(TAG,"retry %d to connect to the AP",
                             retryConnectCounter_u8st);
         retryConnectCounter_u8st++;
+        if(NULL != timer_sst)
+        {
+            xTimerStart(timer_sst, 0);
+        }
     }
     else
     {
         retryConnectCounter_u8st = 0U;
         ESP_LOGI(TAG,"connection to access point failed, start own access point");
-        wifiCtrl_InitializeWifiSoftAp_vd();
+        StartAccessPoint_vd();
     }
 
-    return(ESP_OK);
+    return(result_st);
 }
 
 /**--------------------------------------------------------------------------------------
@@ -484,9 +523,9 @@ static esp_err_t HandleWifiClientConnected_st(system_event_t *event)
     ESP_LOGI(TAG, "station2:"MACSTR" join, AID=%d",
              MAC2STR(event->event_info.sta_connected.mac),
              event->event_info.sta_connected.aid);
-    if(NULL != eventWifiStarted_ptrs)
+    if(NULL != service_sst.OnDisconncetion_fcp)
     {
-        (*eventWifiStarted_ptrs)();
+        service_sst.OnDisconncetion_fcp();
         ESP_LOGI(TAG, "executed wifi ap connect callback function...");
     }
 
@@ -507,12 +546,6 @@ static esp_err_t HandleWifiClientDisConnected_st(system_event_t *event)
     ESP_LOGI(TAG, "station:"MACSTR"leave, AID=%d",
              MAC2STR(event->event_info.sta_disconnected.mac),
              event->event_info.sta_disconnected.aid);
-    if(NULL != eventWifiDisconnected_ptrs)
-    {
-        (*eventWifiDisconnected_ptrs)();
-        ESP_LOGI(TAG, "executed wifi ap disconnect callback function...");
-    }
-
     return(ESP_OK);
 }
 
@@ -528,4 +561,15 @@ static esp_err_t HandleUnexpectedWifiEvent_st(system_event_t *event)
     ESP_LOGE(TAG, "unexpected wifi event received: %d", event->event_id);
 
     return(ESP_OK);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     callback function for the timer event handler
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+ * @param     xTimer      handle to timer
+*//*-----------------------------------------------------------------------------------*/
+static void HandleConnectionTimeout_vd(TimerHandle_t xTimer)
+{
+    ESP_LOGD(TAG, "timer callback...");
 }
