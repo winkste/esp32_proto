@@ -9,16 +9,20 @@
 #define MAIN_TODO_H_
 
 //TODO: why do I need frames in the pathes?
-//TODO: re-test console & OTA update
+//TODO: re-test console
+//TODO: console shall also be able to send data
+//TODO: re-test OTA update
 //TODO: WROVER display log module
-//TODO: rename myConsole
+
 //TODO: mqtt setup parameter to parameter storage
 //TODO: controlTask, single init functions for each feature
-//TODO: think of a wifiIf module for the different wifi mode callbacks: sta, ap, disconn
-//TODO: add a wifiCmd module for wifi command handling
+
+
 //TODO: add a controlCmd module for controlTask specific command handling
-//TODO: wifi should be a component
-//TODO: rework the error handling
+
+//TODO: rework the error handling of wifi
+//TODO: rework the error handling of...
+//TODO: SYSTEM_EVENT_STA_LOST_IP unexpected event
 
 
 

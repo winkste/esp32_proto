@@ -78,15 +78,19 @@ typedef struct ctrlData_tag
 static void RegisterCommands(void);
 static int CommandInfoHandler_i(int argc, char** argv);
 static int CommandRebootHandler_i(int argc, char** argv);
+static void ServiceCbWifiStationConn(void);
+static void ServiceCbWifiApClientConn(void);
+static void ServiceCbWifiDisconnected(void);
 
 /****************************************************************************************/
 /* Local variables: */
 
-const int WIFI_STARTED      = BIT0;
-const int WIFI_DISCONNECTED = BIT1;
-const int SOCKET_ERROR      = BIT2;
-const int SYSTEM_REBOOT     = BIT3;
-const int WIFI_STARTED_STA  = BIT4;
+const int WIFI_STATION      = BIT0;
+const int WIFI_AP_CLIENT    = BIT1;
+const int WIFI_DISCONN      = BIT2;
+const int SOCKET_ERROR      = BIT3;
+const int SYSTEM_REBOOT     = BIT4;
+
 
 static EventGroupHandle_t controlEventGroup_sts;
 static const char *TAG = "controlTask";
@@ -174,9 +178,9 @@ esp_err_t controlTask_Initialize_st(void)
 
     wifiIf_serviceRegEntry_t services_st =
     {
-        controlTask_SetEventWifiStarted,
-        controlTask_SetEventWifiStartedSta,
-        controlTask_SetEventWifiDisconnected
+        ServiceCbWifiStationConn,
+        ServiceCbWifiDisconnected,
+        ServiceCbWifiApClientConn
     };
     wifiCtrl_Initialize_vd(&services_st);
     wifiCtrl_Start_vd();
@@ -196,6 +200,7 @@ esp_err_t controlTask_Initialize_st(void)
     otaUpdate_InitializeParameter_td(&otaParam_st);
     otaUpdate_Initialize_td(&otaParam_st);
 
+#ifdef MQTT_SERVICE
     /* initialize the mqtt driver including the mqtt client */
     ESP_ERROR_CHECK(mqttdrv_InitializeParameter(&mqttParam_st));
     memcpy(mqttParam_st.host_u8a, MQTT_HOST, strlen(MQTT_HOST));
@@ -204,43 +209,19 @@ esp_err_t controlTask_Initialize_st(void)
     memcpy(mqttParam_st.userPwd_u8a, MQTT_PASSWORD, strlen(MQTT_PASSWORD));
     ESP_ERROR_CHECK(mqttdrv_Initialize(&mqttParam_st));
 
+#endif
+
+#ifdef MQTT_DEVICES_ACTIVE
     /* initialize device manager */
     ESP_ERROR_CHECK(devmgr_InitializeParameter(&devMgrParam_st));
     ESP_ERROR_CHECK(devmgr_Initialize(&devMgrParam_st));
     ESP_LOGI(TAG, "generate devices...");
     devmgr_GenerateDevices();
+#endif
 
     /* start the control task */
     xTaskCreate(controlTask_Task_vd, "controlTask", 4096, NULL, 5, NULL);
     return(success_st);
-}
-
-/**---------------------------------------------------------------------------------------
- * @brief     CallBack function to notify controlTask that wifi is active
-*//*-----------------------------------------------------------------------------------*/
-void controlTask_SetEventWifiStarted(void)
-{
-    ESP_LOGI(TAG, "callback controlTask_SetEventWifiStarted...");
-    xEventGroupSetBits(controlEventGroup_sts, WIFI_STARTED);
-}
-
-/**---------------------------------------------------------------------------------------
- * @brief     CallBack function to notify controlTask that wifi is active in station mode
-*//*-----------------------------------------------------------------------------------*/
-void controlTask_SetEventWifiStartedSta(void)
-{
-    ESP_LOGI(TAG, "callback controlTask_SetEventWifiStartedSta...");
-    xEventGroupSetBits(controlEventGroup_sts, WIFI_STARTED_STA);
-}
-
-
-/**---------------------------------------------------------------------------------------
- * @brief     Callback function to notify controlTask that WIFI is disconnected
-*//*-----------------------------------------------------------------------------------*/
-void controlTask_SetEventWifiDisconnected(void)
-{
-    ESP_LOGI(TAG, "callback controlTask_SetEventWifiDisconnected...");
-    xEventGroupSetBits(controlEventGroup_sts, WIFI_DISCONNECTED);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -258,7 +239,7 @@ void controlTask_SetEventSocketError(void)
 void controlTask_Task_vd(void *pvParameters)
 {
     EventBits_t uxBits_st;
-    uint32_t bits_u32 = WIFI_STARTED | WIFI_DISCONNECTED | WIFI_STARTED_STA |
+    uint32_t bits_u32 = WIFI_STATION | WIFI_AP_CLIENT | WIFI_DISCONN |
                         SOCKET_ERROR | SYSTEM_REBOOT;
 
     ESP_LOGI(TAG, "controlTask started...");
@@ -267,26 +248,26 @@ void controlTask_Task_vd(void *pvParameters)
         uxBits_st = xEventGroupWaitBits(controlEventGroup_sts, bits_u32,
                                          true, false, portMAX_DELAY); // @suppress("Symbol is not resolved")
 
-        if(0 != (uxBits_st & WIFI_STARTED))
+        if(0 != (uxBits_st & WIFI_STATION))
         {
-            ESP_LOGI(TAG, "WIFI_STARTED received...");
-            // activate socket server
-            //consoleSocket_Activate_vd();
-            //udpLog_Init_st( "192.168.178.25", 1337);
-        }
-
-        if(0 != (uxBits_st & WIFI_STARTED_STA))
-        {
-            ESP_LOGI(TAG, "WIFI_STARTED_STA received...");
-            // activate socket server
+            ESP_LOGI(TAG, "WIFI_STATION received...");
             consoleSocket_Activate_vd();
             //udpLog_Init_st( "192.168.178.25", 1337);
-            mqttdrv_StartMqttDemon();
+            //mqttdrv_StartMqttDemon();
+
         }
 
-        if(0 != (uxBits_st & WIFI_DISCONNECTED))
+        if(0 != (uxBits_st & WIFI_AP_CLIENT))
+        {
+            ESP_LOGI(TAG, "WIFI_AP_CLIENT received...");
+            consoleSocket_Activate_vd();
+            //udpLog_Init_st( "192.168.178.25", 1337);
+        }
+
+        if(0 != (uxBits_st & WIFI_DISCONN))
         {
             ESP_LOGI(TAG, "WIFI_DISCONNECTED received...");
+            //consoleSocket_Deactivate_vd();
             //udpLog_Free_vd();
         }
 
@@ -360,4 +341,46 @@ static int CommandRebootHandler_i(int argc, char** argv)
     ESP_LOGI(TAG, "networkTask: Reboot in 2 seconds...");
     xEventGroupSetBits(controlEventGroup_sts, SYSTEM_REBOOT);
     return(0);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Service callback function, when connected to a wifi station
+ * @author    S. Wink
+ * @date      06. Sep. 2019
+ * @param     argc  count of argument list
+ * @param     argv  pointer to argument list
+ * @return    not equal to zero if error detected
+*//*-----------------------------------------------------------------------------------*/
+static void ServiceCbWifiStationConn(void)
+{
+    ESP_LOGI(TAG, "callback ServiceCbWifiStationConn...");
+    xEventGroupSetBits(controlEventGroup_sts, WIFI_STATION);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Service callback function, when in AP mode a client is connected
+ * @author    S. Wink
+ * @date      06. Sep. 2019
+ * @param     argc  count of argument list
+ * @param     argv  pointer to argument list
+ * @return    not equal to zero if error detected
+*//*-----------------------------------------------------------------------------------*/
+static void ServiceCbWifiApClientConn(void)
+{
+    ESP_LOGI(TAG, "callback ServiceCbWifiApClientConn...");
+    xEventGroupSetBits(controlEventGroup_sts, WIFI_AP_CLIENT);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Service callback function, when wifi is disconnected
+ * @author    S. Wink
+ * @date      06. Sep. 2019
+ * @param     argc  count of argument list
+ * @param     argv  pointer to argument list
+ * @return    not equal to zero if error detected
+*//*-----------------------------------------------------------------------------------*/
+static void ServiceCbWifiDisconnected(void)
+{
+    ESP_LOGI(TAG, "callback ServiceCbWifiDisconnected...");
+    xEventGroupSetBits(controlEventGroup_sts, WIFI_DISCONN);
 }

@@ -171,7 +171,7 @@ bool utils_CheckAndLogExecution_bol(const char *file_ccp, esp_err_t exeCode_st,
     if(ESP_OK != exeCode_st)
     {
         ESP_LOGE(file_ccp, "bad function error code returned in line: %d, error code: %d",
-                    exeCode_st, line_u32);
+                line_u32, exeCode_st);
     }
 
     return(ESP_OK == exeCode_st);
@@ -183,11 +183,13 @@ bool utils_CheckAndLogExecution_bol(const char *file_ccp, esp_err_t exeCode_st,
 void utils_CheckAndLogExec_vd(const char *file_ccp, esp_err_t exeCode_st,
                                         uint32_t line_u32)
 {
-    if(ESP_OK != exeCode_st)
+    /*if(ESP_OK != exeCode_st)
     {
         ESP_LOGE(file_ccp, "bad function error code returned in line: %d, error code: %d",
-                    exeCode_st, line_u32);
-    }
+                    line_u32, exeCode_st);
+    }*/
+
+    ESP_LOGE(file_ccp, "line: %d, error code: %d", line_u32, exeCode_st);
 }
 
 /****************************************************************************************/

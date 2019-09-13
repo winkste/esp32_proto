@@ -57,27 +57,6 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 extern esp_err_t    controlTask_Initialize_st(void);
 
 /**---------------------------------------------------------------------------------------
- * @brief     CallBack function to notify controlTask that wifi is active
- * @author    S. Wink
- * @date      24. Jan. 2019
-*//*-----------------------------------------------------------------------------------*/
-extern void         controlTask_SetEventWifiStarted(void);
-
-/**---------------------------------------------------------------------------------------
- * @brief     CallBack function to notify controlTask that wifi is active in station mode
- * @author    S. Wink
- * @date      24. Jan. 2019
-*//*-----------------------------------------------------------------------------------*/
-extern void         controlTask_SetEventWifiStartedSta(void);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Callback function to notify controlTask that WIFI is disconnected
- * @author    S. Wink
- * @date      24. Jan. 2019
-*//*-----------------------------------------------------------------------------------*/
-extern void         controlTask_SetEventWifiDisconnected(void);
-
-/**---------------------------------------------------------------------------------------
  * @brief     Callback function to notify task that socket run to an error
  * @author    S. Wink
  * @date      24. Jan. 2019

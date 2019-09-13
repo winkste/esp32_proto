@@ -75,7 +75,7 @@ static void StopSocket(int sock_i);
 
 /***************************************************************************************/
 /* Local variables: */
-static const char *TAG = "socketServer";
+static const char *TAG = "consoleSocket";
 static const int START_SOCKET_SERVER = BIT0;
 static EventGroupHandle_t socketServerEventGroup_sts;
 void (*eventSocketError_ptrs)(void);
