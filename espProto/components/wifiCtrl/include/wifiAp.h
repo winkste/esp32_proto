@@ -1,10 +1,10 @@
 /*****************************************************************************************
-* FILENAME :        wifiCtrl.h
+* FILENAME :        wifiAp.h
 *
 * DESCRIPTION :
-*      Header file for wifi control module
+*      Header file for wifi access point module
 *
-* AUTHOR :    Stephan Wink        CREATED ON :    24.01.2019
+* AUTHOR :    Stephan Wink        CREATED ON :    15.09.2019
 *
 * Copyright (c) [2017] [Stephan Wink]
 *
@@ -26,13 +26,14 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef WIFICTRL_H_
-#define WIFICTRL_H_
+#ifndef WIFIAP_H_
+#define WIFIAP_H_
 
 /****************************************************************************************/
 /* Imported header files: */
 
 #include "wifiIf.h"
+#include "esp_event_legacy.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
@@ -47,37 +48,29 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /* Global function definitions: */
 
 /**---------------------------------------------------------------------------------------
- * @brief     General initialization of wifi module. This function has to be
- *              executed before the other ones.
- * @author    S. Wink
- * @date      24. Jan. 2019
- * @param     service_stp           wifi service callback
- * @return    ESP_OK if init was successful, else ESP_FAIL
-*//*-----------------------------------------------------------------------------------*/
-extern esp_err_t wifiCtrl_Initialize_st(wifiIf_serviceRegEntry_t *service_stp);
-
-/**---------------------------------------------------------------------------------------
  * @brief     Function to start the wifi 
  * @author    S. Wink
  * @date      24. Jan. 2019
  * @return    ESP_OK if start was successful, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t wifiCtrl_Start_st(void);
+extern esp_err_t wifiAp_Start_st(void);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Function to stop the wifi 
+ * @brief     Function to stop the wifi
  * @author    S. Wink
  * @date      24. Jan. 2019
-  * @return    ESP_OK if start was successful, else ESP_FAIL
+ * @return    ESP_OK if start was successful, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t wifiCtrl_Stop_st(void);
+extern esp_err_t wifiAp_Stop_st(void);
 
-/**---------------------------------------------------------------------------------------
- * @brief     Function to register WIFI commands
+/**--------------------------------------------------------------------------------------
+ * @brief     Event converter
  * @author    S. Wink
- * @date      24. Jan. 2019
+ * @date      15. Sep. 2019
+ * @param     event_stp     the received event
+ * @return    converted event id fitting to the wifi module
 *//*-----------------------------------------------------------------------------------*/
-extern void wifiCtrl_RegisterWifiCommands(void);
+extern uint32_t wifiAp_EventConverter_u32(system_event_t *event_stp);
 /****************************************************************************************/
 /* Global data definitions: */
 

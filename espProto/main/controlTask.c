@@ -182,8 +182,8 @@ esp_err_t controlTask_Initialize_st(void)
         ServiceCbWifiDisconnected,
         ServiceCbWifiApClientConn
     };
-    wifiCtrl_Initialize_vd(&services_st);
-    wifiCtrl_Start_vd();
+    wifiCtrl_Initialize_st(&services_st);
+    wifiCtrl_Start_st();
     wifiCtrl_RegisterWifiCommands();
 
     consoleSocket_Initialize_st(&sockParam_st);  // 3. start the socket sever

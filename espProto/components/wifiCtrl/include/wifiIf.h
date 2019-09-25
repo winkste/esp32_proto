@@ -32,11 +32,26 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Imported header files: */
 #include "esp_wifi.h"
+#include "sdkconfig.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
 #define wifiIf_SIZE_OF_SSID_VECTOR         32U
 #define wifiIf_SIZE_OF_PASSWORD            64U
+
+#define wifiIf_DEFAULT_WIFI_SSID_STA    CONFIG_WIFI_SSID
+#define wifiIf_DEFAULT_WIFI_PASS_STA    CONFIG_WIFI_PASSWORD
+
+#define wifiIf_EVENT_DONT_CARE              0x00000000
+#define wifiIf_EVENT_CLIENT_CONNECTED       0x00000001
+#define wifiIf_EVENT_CLIENT_DISCONNECTED    0x00000002
+
+
+#define wifiIf_EVENT_STATION_STOP           0x00000004
+#define wifiIf_EVENT_STATION_CONNECTED      0x00000008
+#define wifiIf_EVENT_STATION_DISCONNECTED   0x00000010
+
+#define wifiIf_EVENT_CONN_TIMEOUT           0x00000020
 
 /****************************************************************************************/
 /* Global function like macro defines (to be avoided): */
@@ -45,12 +60,25 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
 typedef void (*wifiIf_ServiceHandler_fcp)(void);
+typedef uint32_t (*wifiIf_Converter_fcp)(system_event_t *event_stp);
 typedef struct wifiIf_serviceRegEntry_tag
 {
         wifiIf_ServiceHandler_fcp OnStationConncetion_fcp;
         wifiIf_ServiceHandler_fcp OnDisconncetion_fcp;
         wifiIf_ServiceHandler_fcp OnClientConnection_fcp;
 }wifiIf_serviceRegEntry_t;
+
+typedef struct wifiIf_stationParam_tag
+{
+    uint8_t ssid[wifiIf_SIZE_OF_SSID_VECTOR];           /**< SSID of ESP32 soft-AP */
+    uint8_t password[wifiIf_SIZE_OF_PASSWORD];       /**< Password of ESP32 soft-AP */
+}wifiIf_stationParam_t;
+
+typedef struct wifiIf_eventLookup_tag
+{
+    system_event_id_t eventId_st;
+    uint32_t wifiEvent_u32;
+}wifiIf_eventLookup_t;
 
 /****************************************************************************************/
 /* Global function definitions: */
