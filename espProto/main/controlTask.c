@@ -63,6 +63,9 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
     #define BIT4    0x00000008
 #endif
 
+#define MQTT_SERVICE_ACTIVE 1
+#define MQTT_DEVICES_ACTIVE 1
+
 /****************************************************************************************/
 /* Local function like makros */
 
@@ -81,6 +84,7 @@ static int CommandRebootHandler_i(int argc, char** argv);
 static void ServiceCbWifiStationConn(void);
 static void ServiceCbWifiApClientConn(void);
 static void ServiceCbWifiDisconnected(void);
+static void PrintFirmwareIdent(void);
 
 /****************************************************************************************/
 /* Local variables: */
@@ -157,24 +161,11 @@ esp_err_t controlTask_Initialize_st(void)
 
     /* initialize and register Version information */
     ESP_ERROR_CHECK(appIdent_Initialize_st());
+    PrintFirmwareIdent();
+
 
     /* setup event group for event receiving from other tasks and processes */
     controlEventGroup_sts = xEventGroupCreate();
-
-#ifdef TEST_SWI
-    wifiIf_eventCallB_t param_st =
-    {
-        controlTask_SetEventWifiStarted,
-        controlTask_SetEventWifiStartedSta,
-        controlTask_SetEventWifiDisconnected
-    };
-    /* initialize wifi and socket server */
-    wifiCtrl_InitializeWifi_vd(&param_st);    // 1. setup wifi in general
-    wifiCtrl_InitializeWifiSta_vd();          // 2. start wifi in stationary mode
-    //myWifi_InitializeWifiSoftAp_vd();     // or 2. start wifi in access point mode
-    consoleSocket_Initialize_st(&sockParam_st);  // 3. start the socket sever
-    wifiCtrl_RegisterWifiCommands();              // 4. register wifi related commands
-#endif
 
     wifiIf_serviceRegEntry_t services_st =
     {
@@ -186,7 +177,7 @@ esp_err_t controlTask_Initialize_st(void)
     wifiCtrl_Start_st();
     wifiCtrl_RegisterWifiCommands();
 
-    consoleSocket_Initialize_st(&sockParam_st);  // 3. start the socket sever
+    consoleSocket_Initialize_st(&sockParam_st);
 
 
     /* update startup counter in none volatile memory */
@@ -200,7 +191,7 @@ esp_err_t controlTask_Initialize_st(void)
     otaUpdate_InitializeParameter_td(&otaParam_st);
     otaUpdate_Initialize_td(&otaParam_st);
 
-#ifdef MQTT_SERVICE
+#ifdef MQTT_SERVICE_ACTIVE
     /* initialize the mqtt driver including the mqtt client */
     ESP_ERROR_CHECK(mqttdrv_InitializeParameter(&mqttParam_st));
     memcpy(mqttParam_st.host_u8a, MQTT_HOST, strlen(MQTT_HOST));
@@ -253,7 +244,7 @@ void controlTask_Task_vd(void *pvParameters)
             ESP_LOGI(TAG, "WIFI_STATION received...");
             consoleSocket_Activate_vd();
             //udpLog_Init_st( "192.168.178.25", 1337);
-            //mqttdrv_StartMqttDemon();
+            mqttdrv_StartMqttDemon();
 
         }
 
@@ -278,7 +269,7 @@ void controlTask_Task_vd(void *pvParameters)
 
         if(0 != (uxBits_st & SYSTEM_REBOOT))
         {
-            vTaskDelay(2000 / portTICK_RATE_MS);
+            vTaskDelay(5000 / portTICK_RATE_MS);
             esp_restart();
         }
     }
@@ -323,8 +314,7 @@ static void RegisterCommands(void)
 static int CommandInfoHandler_i(int argc, char** argv)
 {
     ESP_LOGI(TAG, "information request command received");
-    ESP_ERROR_CHECK(paramif_Read_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
-    ESP_LOGI(TAG, "startups detected: %d", controlData_sts.startupCounter_u32);
+    PrintFirmwareIdent();
     return(0);
 }
 
@@ -384,3 +374,29 @@ static void ServiceCbWifiDisconnected(void)
     ESP_LOGI(TAG, "callback ServiceCbWifiDisconnected...");
     xEventGroupSetBits(controlEventGroup_sts, WIFI_DISCONN);
 }
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Print the firmware identification to serial
+ * @author    S. Wink
+ * @date      06. Sep. 2019
+*//*-----------------------------------------------------------------------------------*/
+static void PrintFirmwareIdent(void)
+{
+    ESP_LOGI(TAG, "----------------------------------------------------");
+    ESP_LOGI(TAG, "Firmware PN: %s", appIdent_GetFwIdentifier_cch());
+    ESP_LOGI(TAG, "Firmware Version: %s", appIdent_GetFwVersion_cch());
+    ESP_LOGI(TAG, "Firmware Desc: %s", appIdent_GetFwDescription_cch());
+    ESP_LOGI(TAG, "----------------------------------------------------");
+    if(NULL != ctrlParaHdl_xps)
+    {
+        ESP_ERROR_CHECK(paramif_Read_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
+        ESP_LOGI(TAG, "startups detected: %d", controlData_sts.startupCounter_u32);
+    }
+    else
+    {
+        ESP_LOGE(TAG, "startup counter not readable...");
+    }
+    ESP_LOGI(TAG, "----------------------------------------------------");
+}
+
+
