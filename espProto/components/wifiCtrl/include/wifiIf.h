@@ -61,12 +61,12 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 typedef void (*wifiIf_ServiceHandler_fcp)(void);
 typedef uint32_t (*wifiIf_Converter_fcp)(system_event_t *event_stp);
-typedef struct wifiIf_serviceRegEntry_tag
+typedef struct wifiIf_service_tag
 {
         wifiIf_ServiceHandler_fcp OnStationConncetion_fcp;
         wifiIf_ServiceHandler_fcp OnDisconncetion_fcp;
         wifiIf_ServiceHandler_fcp OnClientConnection_fcp;
-}wifiIf_serviceRegEntry_t;
+}wifiIf_service_t;
 
 typedef struct wifiIf_stationParam_tag
 {

@@ -89,8 +89,7 @@ typedef struct objectData_tag
 /* Local functions prototypes: */
 static void AddSubsToList_vd(mqttdrv_subsHdl_t subsHdl_xp);
 static void RemoveSubsFromList_vd(mqttdrv_subsHdl_t subsHdl_xp);
-//static bool IsListEmpty_bol(void);
-
+static esp_err_t MqttEventHandler_st(esp_mqtt_event_handle_t event_stp);
 static void HandleConnect_vd(esp_mqtt_event_handle_t event_stp);
 static void HandleDisconnect_vd(esp_mqtt_event_handle_t event_stp);
 static void HandleSubscription_vd(esp_mqtt_event_handle_t event_stp);
@@ -98,10 +97,8 @@ static void HandleUnsubscription_vd(esp_mqtt_event_handle_t event_stp);
 static void HandlePublish_vd(esp_mqtt_event_handle_t event_stp);
 static void HandleData_vd(esp_mqtt_event_handle_t event_stp);
 static void HandleError_vd(esp_mqtt_event_handle_t event_stp);
-
 static esp_err_t Connect(void);
 static esp_err_t Disconnect(void);
-static esp_err_t MqttEventHandler_st(esp_mqtt_event_handle_t event_stp);
 static void Task_vd(void *pvParameters);
 
 /****************************************************************************************/
@@ -260,7 +257,7 @@ esp_err_t mqttdrv_InitSubscriptParam(mqttif_substParam_t *subsParam_stp)
 /**---------------------------------------------------------------------------------------
  * @brief     Allocate subscribe handle
 *//*-----------------------------------------------------------------------------------*/
-mqttdrv_subsHdl_t mqttdrv_AllocSub_xp(mqttif_substParam_t *subsParam_stp)
+mqttdrv_subsHdl_t mqttdrv_AllocSubs_xp(mqttif_substParam_t *subsParam_stp)
 {
     mqttdrv_subsHdl_t handle_xp;
 
@@ -296,7 +293,7 @@ mqttdrv_subsHdl_t mqttdrv_AllocSub_xp(mqttif_substParam_t *subsParam_stp)
 /**---------------------------------------------------------------------------------------
  * @brief     Deallocate subscribe handle
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t mqttdrv_DeAllocSub_st(mqttdrv_subsHdl_t subsHdl_xp)
+esp_err_t mqttdrv_DeAllocSubs_st(mqttdrv_subsHdl_t subsHdl_xp)
 {
     esp_err_t result_st = ESP_FAIL;
 
@@ -456,23 +453,6 @@ esp_err_t mqttdrv_Publish_st(mqttif_msg_t *msg_stp, uint32_t timeOut_u32)
 
 /****************************************************************************************/
 /* Local functions: */
-/**---------------------------------------------------------------------------------------
- * @brief     checks if the list is empty
- * @author    S. Wink
- * @date      24. Jan. 2019
- * @return    true if empty, else false
-*//*------------------------------------------------------------------------------------*/
-/*static bool IsListEmpty_bol(void)
-{
-    bool retVal_bol = false;
-
-    if(NULL == singleton_sst.subst_xp)
-    {
-        retVal_bol = true;
-    }
-
-    return(retVal_bol);
-}*/
 
 /**---------------------------------------------------------------------------------------
  * @brief     Add the subscription object handle to the list for later handling
@@ -529,6 +509,78 @@ static void RemoveSubsFromList_vd(mqttdrv_subsHdl_t subsHdl_xp)
             current_xp = current_xp->next_xp;
         }
     }
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Event handling for MQTT events
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+ * @param     event_stp        event structure
+ * @return    n/a
+*//*------------------------------------------------------------------------------------*/
+static esp_err_t MqttEventHandler_st(esp_mqtt_event_handle_t event_stp)
+{
+
+    switch (event_stp->event_id)
+    {
+        case MQTT_EVENT_CONNECTED:
+            ESP_LOGD(TAG, "MQTT_EVENT_CONNECTED");
+            HandleConnect_vd(event_stp);
+            break;
+        case MQTT_EVENT_DISCONNECTED:
+            ESP_LOGD(TAG, "MQTT_EVENT_DISCONNECTED");
+            HandleDisconnect_vd(event_stp);
+            break;
+        case MQTT_EVENT_SUBSCRIBED:
+            ESP_LOGD(TAG, "MQTT_EVENT_SUBSCRIBED");
+            HandleSubscription_vd(event_stp);
+            break;
+        case MQTT_EVENT_UNSUBSCRIBED:
+            ESP_LOGD(TAG, "MQTT_EVENT_UNSUBSCRIBED");
+            HandleUnsubscription_vd(event_stp);
+            break;
+        case MQTT_EVENT_PUBLISHED:
+            ESP_LOGD(TAG, "MQTT_EVENT_PUBLISHED");
+            HandlePublish_vd(event_stp);
+            break;
+        case MQTT_EVENT_DATA:
+            ESP_LOGD(TAG, "MQTT_EVENT_DATA");
+            HandleData_vd(event_stp);
+            break;
+        case MQTT_EVENT_ERROR:
+            ESP_LOGD(TAG, "MQTT_EVENT_ERROR");
+            HandleError_vd(event_stp);
+            break;
+        default:
+            ESP_LOGD(TAG, "default");
+            HandleError_vd(event_stp);
+            break;
+    }
+    return ESP_OK;
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Handler for subscription event
+ * @author    S. Wink
+ * @date      31. Mar. 2019
+ * @param     event_stp        event structure
+ * @return    n/a
+*//*------------------------------------------------------------------------------------*/
+static void HandleSubscription_vd(esp_mqtt_event_handle_t event_stp)
+{
+    //ESP_LOGI(TAG, "handle subscription event, msg_id=%d", event_stp->msg_id);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Handler for un-subscription event
+ * @author    S. Wink
+ * @date      31. Mar. 2019
+ * @param     event_stp        event structure
+ * @return    n/a
+*//*------------------------------------------------------------------------------------*/
+static void HandleUnsubscription_vd(esp_mqtt_event_handle_t event_stp)
+{
+    //ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event_stp->msg_id);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -614,30 +666,6 @@ static void HandleDisconnect_vd(esp_mqtt_event_handle_t event_stp)
     {
         ESP_LOGW(TAG, "unexpected state reached while disconnection...");
     }
-}
-
-/**---------------------------------------------------------------------------------------
- * @brief     Handler for subscription event
- * @author    S. Wink
- * @date      31. Mar. 2019
- * @param     event_stp        event structure
- * @return    n/a
-*//*------------------------------------------------------------------------------------*/
-static void HandleSubscription_vd(esp_mqtt_event_handle_t event_stp)
-{
-    //ESP_LOGI(TAG, "handle subscription event, msg_id=%d", event_stp->msg_id);
-}
-
-/**---------------------------------------------------------------------------------------
- * @brief     Handler for un-subscription event
- * @author    S. Wink
- * @date      31. Mar. 2019
- * @param     event_stp        event structure
- * @return    n/a
-*//*------------------------------------------------------------------------------------*/
-static void HandleUnsubscription_vd(esp_mqtt_event_handle_t event_stp)
-{
-    //ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event_stp->msg_id);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -787,54 +815,6 @@ static esp_err_t Disconnect(void)
     }
 
     return(result_st);
-}
-
-/**---------------------------------------------------------------------------------------
- * @brief     Add the subscription object handle to the list for later handling
- * @author    S. Wink
- * @date      24. Jan. 2019
- * @param     subsHdl_xp        subscription handler
- * @return    n/a
-*//*------------------------------------------------------------------------------------*/
-static esp_err_t MqttEventHandler_st(esp_mqtt_event_handle_t event_stp)
-{
-
-    switch (event_stp->event_id)
-    {
-        case MQTT_EVENT_CONNECTED:
-            ESP_LOGD(TAG, "MQTT_EVENT_CONNECTED");
-            HandleConnect_vd(event_stp);
-            break;
-        case MQTT_EVENT_DISCONNECTED:
-            ESP_LOGD(TAG, "MQTT_EVENT_DISCONNECTED");
-            HandleDisconnect_vd(event_stp);
-            break;
-        case MQTT_EVENT_SUBSCRIBED:
-            ESP_LOGD(TAG, "MQTT_EVENT_SUBSCRIBED");
-            HandleSubscription_vd(event_stp);
-            break;
-        case MQTT_EVENT_UNSUBSCRIBED:
-            ESP_LOGD(TAG, "MQTT_EVENT_UNSUBSCRIBED");
-            HandleUnsubscription_vd(event_stp);
-            break;
-        case MQTT_EVENT_PUBLISHED:
-            ESP_LOGD(TAG, "MQTT_EVENT_PUBLISHED");
-            HandlePublish_vd(event_stp);
-            break;
-        case MQTT_EVENT_DATA:
-            ESP_LOGD(TAG, "MQTT_EVENT_DATA");
-            HandleData_vd(event_stp);
-            break;
-        case MQTT_EVENT_ERROR:
-            ESP_LOGD(TAG, "MQTT_EVENT_ERROR");
-            HandleError_vd(event_stp);
-            break;
-        default:
-            ESP_LOGD(TAG, "default");
-            HandleError_vd(event_stp);
-            break;
-    }
-    return ESP_OK;
 }
 
 /**---------------------------------------------------------------------------------------

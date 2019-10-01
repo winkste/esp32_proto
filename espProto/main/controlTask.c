@@ -47,6 +47,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "sdkconfig.h"
 
 #include "udpLog.h"
+#include "utils.h"
 
 #include "wifiIf.h"
 #include "wifiCtrl.h"
@@ -65,6 +66,9 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 #define MQTT_SERVICE_ACTIVE 1
 #define MQTT_DEVICES_ACTIVE 1
+
+#define MODULE_TAG "controlTask"
+#define CHECK_EXE(arg) utils_CheckAndLogExecution_vd(MODULE_TAG, arg, __LINE__)
 
 /****************************************************************************************/
 /* Local function like makros */
@@ -97,7 +101,7 @@ const int SYSTEM_REBOOT     = BIT4;
 
 
 static EventGroupHandle_t controlEventGroup_sts;
-static const char *TAG = "controlTask";
+static const char *TAG = MODULE_TAG;
 
 //static void InitializeCommands(void);
 static ctrlData_t controlData_sts =
@@ -146,28 +150,28 @@ esp_err_t controlTask_Initialize_st(void)
     otaUpdate_param_t otaParam_st;
 
     /* parameter initialization */
-    ESP_ERROR_CHECK(paramif_InitializeParameter_td(&paramHdl_st));
-    ESP_ERROR_CHECK(paramif_Initialize_td(&paramHdl_st));
-    ESP_ERROR_CHECK(paramif_InitializeAllocParameter_td(&controlAllocParam_st));
+    CHECK_EXE(paramif_InitializeParameter_td(&paramHdl_st));
+    CHECK_EXE(paramif_Initialize_td(&paramHdl_st));
+    CHECK_EXE(paramif_InitializeAllocParameter_td(&controlAllocParam_st));
     controlAllocParam_st.length_u16 = sizeof(ctrlData_t);
     controlAllocParam_st.defaults_u8p = (uint8_t *)&defaultControlData_stsc;
     controlAllocParam_st.nvsIdent_cp = CTRL_PARA_IDENT;
     ctrlParaHdl_xps = paramif_Allocate_stp(&controlAllocParam_st);
 
     /* initialize console object for message processing */
-    ESP_ERROR_CHECK(myConsole_Init_td(&consoleConfig_st));
+    CHECK_EXE(myConsole_Init_td(&consoleConfig_st));
     myConsole_RegisterHelpCommand();
     RegisterCommands();
 
     /* initialize and register Version information */
-    ESP_ERROR_CHECK(appIdent_Initialize_st());
+    CHECK_EXE(appIdent_Initialize_st());
     PrintFirmwareIdent();
 
 
     /* setup event group for event receiving from other tasks and processes */
     controlEventGroup_sts = xEventGroupCreate();
 
-    wifiIf_serviceRegEntry_t services_st =
+    wifiIf_service_t services_st =
     {
         ServiceCbWifiStationConn,
         ServiceCbWifiDisconnected,
@@ -181,9 +185,9 @@ esp_err_t controlTask_Initialize_st(void)
 
 
     /* update startup counter in none volatile memory */
-    ESP_ERROR_CHECK(paramif_Read_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
+    CHECK_EXE(paramif_Read_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
     controlData_sts.startupCounter_u32++;
-    ESP_ERROR_CHECK(paramif_Write_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
+    CHECK_EXE(paramif_Write_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
     ESP_LOGI(TAG, "New startup detected, system restarted %d times.",
                 controlData_sts.startupCounter_u32);
 
@@ -193,19 +197,19 @@ esp_err_t controlTask_Initialize_st(void)
 
 #ifdef MQTT_SERVICE_ACTIVE
     /* initialize the mqtt driver including the mqtt client */
-    ESP_ERROR_CHECK(mqttdrv_InitializeParameter(&mqttParam_st));
+    CHECK_EXE(mqttdrv_InitializeParameter(&mqttParam_st));
     memcpy(mqttParam_st.host_u8a, MQTT_HOST, strlen(MQTT_HOST));
     mqttParam_st.port_u32 = mqttPort_u32sc;
     memcpy(mqttParam_st.userName_u8a, MQTT_USER_NAME, strlen(MQTT_USER_NAME));
     memcpy(mqttParam_st.userPwd_u8a, MQTT_PASSWORD, strlen(MQTT_PASSWORD));
-    ESP_ERROR_CHECK(mqttdrv_Initialize(&mqttParam_st));
+    CHECK_EXE(mqttdrv_Initialize(&mqttParam_st));
 
 #endif
 
 #ifdef MQTT_DEVICES_ACTIVE
     /* initialize device manager */
-    ESP_ERROR_CHECK(devmgr_InitializeParameter(&devMgrParam_st));
-    ESP_ERROR_CHECK(devmgr_Initialize(&devMgrParam_st));
+    CHECK_EXE(devmgr_InitializeParameter(&devMgrParam_st));
+    CHECK_EXE(devmgr_Initialize(&devMgrParam_st));
     ESP_LOGI(TAG, "generate devices...");
     devmgr_GenerateDevices();
 #endif

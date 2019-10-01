@@ -45,6 +45,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global function like macro defines (to be avoided): */
 #define utils_MIN(x, y) (((x) < (y)) ? (x) : (y))
+
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
@@ -180,7 +181,7 @@ extern bool utils_CheckAndLogExecution_bol(const char *file_ccp, esp_err_t exeCo
  * @param     exeCode_st  the returned standard execution code
  * @param     line_u32    the line of code where the execution was done
 *//*-----------------------------------------------------------------------------------*/
-extern void utils_CheckAndLogExec_vd(const char *file_ccp, esp_err_t exeCode_st,
+extern void utils_CheckAndLogExecution_vd(const char *file_ccp, esp_err_t exeCode_st,
                                         uint32_t line_u32);
 
 /****************************************************************************************/

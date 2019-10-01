@@ -191,7 +191,7 @@ static esp_err_t GenerateDefaultDevice_st(void)
     ESP_LOGD(TAG, "topic from gendev: %s", subsParam_st.topic_u8a);
     while(hasMoreSubscriptions_bol && (ESP_FAIL != result_st))
     {
-        if(NULL == mqttdrv_AllocSub_xp(&subsParam_st))
+        if(NULL == mqttdrv_AllocSubs_xp(&subsParam_st))
         {
             result_st = ESP_FAIL;
         }

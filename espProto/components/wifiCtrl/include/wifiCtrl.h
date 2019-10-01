@@ -43,6 +43,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
+typedef struct wifiCtrl_serviceObj_tag* wifiCtrl_serviceHdl_t;
 /****************************************************************************************/
 /* Global function definitions: */
 
@@ -54,7 +55,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * @param     service_stp           wifi service callback
  * @return    ESP_OK if init was successful, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t wifiCtrl_Initialize_st(wifiIf_serviceRegEntry_t *service_stp);
+extern esp_err_t wifiCtrl_Initialize_st(wifiIf_service_t *service_stp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Function to start the wifi 

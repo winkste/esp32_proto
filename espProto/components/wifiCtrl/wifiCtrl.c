@@ -89,7 +89,7 @@ typedef struct objectData_tag
     uint8_t connectRetries_u8;
     TimerHandle_t timer_st;
     EventGroupHandle_t wifiEventGroup_st;
-    wifiIf_serviceRegEntry_t service_st;
+    wifiIf_service_t service_st;
     wifiIf_Converter_fcp Converter_fcp;
 }objectData_t;
 
@@ -162,7 +162,7 @@ static const wifiMode_t DEFAULT_MODE = MODE_ACCESSPOINT;
  * @brief     General initialization of wifi module. This function has to be
  *              executed before the other ones.
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t wifiCtrl_Initialize_st(wifiIf_serviceRegEntry_t *service_stp)
+esp_err_t wifiCtrl_Initialize_st(wifiIf_service_t *service_stp)
 {
     esp_err_t result_st = ESP_FAIL;
     bool exeResult_bol = true;

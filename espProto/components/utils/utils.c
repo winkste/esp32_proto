@@ -180,7 +180,7 @@ bool utils_CheckAndLogExecution_bol(const char *file_ccp, esp_err_t exeCode_st,
 /**--------------------------------------------------------------------------------------
  * @brief     Change the state of the internal object based on the wifi state
 *//*-----------------------------------------------------------------------------------*/
-void utils_CheckAndLogExec_vd(const char *file_ccp, esp_err_t exeCode_st,
+void utils_CheckAndLogExecution_vd(const char *file_ccp, esp_err_t exeCode_st,
                                         uint32_t line_u32)
 {
     if(ESP_OK != exeCode_st)
