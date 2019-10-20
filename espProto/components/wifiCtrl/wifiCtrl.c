@@ -72,6 +72,14 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /***************************************************************************************/
 /* Local type definitions (enum, struct, union) */
 
+typedef struct wifiCtrl_serviceObj_tag
+{
+     wifiIf_service_t service_st;
+     bool active_bol;
+     wifiCtrl_serviceHdl_t next_xp;
+     wifiCtrl_serviceHdl_t last_xp;
+}wifiCtrl_serviceObj_t;
+
 typedef enum objectState_tag
 {
     STATE_NOT_INITIALIZED,
@@ -91,6 +99,7 @@ typedef struct objectData_tag
     EventGroupHandle_t wifiEventGroup_st;
     wifiIf_service_t service_st;
     wifiIf_Converter_fcp Converter_fcp;
+    wifiCtrl_serviceHdl_t service_xp;
 }objectData_t;
 
 
@@ -103,15 +112,18 @@ typedef enum wifiMode_tag
 
 /***************************************************************************************/
 /* Local functions prototypes: */
-static void Task_vd(void *pvParameters);
-static esp_err_t EventHandler_st(void *ctx_vp, system_event_t *event_stp);
+static void AddServiceToList_vd(wifiCtrl_serviceHdl_t hdl_xp);
+static void RemoveSubsFromList_vd(wifiCtrl_serviceHdl_t hdl_xp);
 static esp_err_t Reconnect_st(void);
+static void Task_vd(void *pvParameters);
+static int32_t CmdHandlerChangeParameter_s32(int32_t argc_s32, char** argv);
+static int32_t CmdHandlerChangeMode_s32(int32_t argc_s32, char** argv);
+static esp_err_t EventHandler_st(void *ctx_vp, system_event_t *event_stp);
 static void HandleConnectionTimeout_vd(TimerHandle_t xTimer);
 static esp_err_t SetAndCheckState_st(objectState_t state_en);
 static esp_err_t StartTimeout_st(void);
 
-static int32_t CmdHandlerChangeParameter_s32(int32_t argc_s32, char** argv);
-static int32_t CmdHandlerChangeMode_s32(int32_t argc_s32, char** argv);
+
 
 /***************************************************************************************/
 /* Local variables: */
@@ -124,6 +136,7 @@ static objectData_t hdl_st =
     .timer_st = NULL,
     .wifiEventGroup_st = NULL,
     .Converter_fcp = wifiAp_EventConverter_u32,
+    .service_xp = NULL
 };
 
 /** Arguments used by 'parameter' function */
@@ -320,8 +333,101 @@ void wifiCtrl_RegisterWifiCommands(void)
     CHECK_EXE(myConsole_CmdRegister_td(&param2Cmd));
 }
 
+/**---------------------------------------------------------------------------------------
+ * @brief     Allocate service handle
+*//*-----------------------------------------------------------------------------------*/
+wifiCtrl_serviceHdl_t wifiIf_RegisterService_xp(wifiIf_service_t *service_stp)
+{
+    wifiCtrl_serviceHdl_t handle_xp;
+
+    if(NULL != service_stp)
+    {
+        handle_xp = malloc(sizeof(wifiCtrl_serviceObj_t));
+        if(NULL != handle_xp)
+        {
+            memset(handle_xp, 0, sizeof(wifiCtrl_serviceObj_t));
+            // initialize the handle data
+            memcpy(&handle_xp->service_st, service_stp, sizeof(handle_xp->service_st));
+            handle_xp->active_bol = true;
+
+            // add the handle to the list, either as first element or at the end
+            AddServiceToList_vd(handle_xp);
+
+            ESP_LOGD(TAG, "wifi service allocated");
+        }
+    }
+    else
+    {
+        handle_xp = NULL;
+    }
+
+    if(NULL == handle_xp)
+    {
+        ESP_LOGE(TAG, "wifi service handle allocation failed...");
+    }
+
+    return(handle_xp);
+}
+
 /***************************************************************************************/
 /* Local functions: */
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Add the subscription object handle to the list for later handling
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+ * @param     subsHdl_xp        subscription handler
+ * @return    n/a
+*//*------------------------------------------------------------------------------------*/
+static void AddServiceToList_vd(wifiCtrl_serviceHdl_t hdl_xp)
+{
+    if(NULL == hdl_st.service_xp)
+    {
+        hdl_st.service_xp = hdl_xp;
+        hdl_st.service_xp->next_xp = NULL;
+    }
+    else
+    {
+        wifiCtrl_serviceHdl_t current_xp = hdl_st.service_xp;
+        while(NULL != current_xp->next_xp)
+        {
+            current_xp = current_xp->next_xp;
+        }
+        current_xp->next_xp = hdl_xp;
+    }
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Add the subscription object handle to the list for later handling
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+ * @param     subsHdl_xp        subscription handler
+ * @return    n/a
+*//*------------------------------------------------------------------------------------*/
+/*static void RemoveSubsFromList_vd(wifiCtrl_serviceHdl_t hdl_xp)
+{
+    mqttdrv_subsHdl_t last_xp = NULL;
+    mqttdrv_subsHdl_t current_xp;
+
+    if((NULL != hdl_xp) && (NULL != hdl_st.service_xp))
+    {
+        last_xp = hdl_st.service_xp;
+        current_xp = hdl_st.service_xp->next_xp;
+
+        while(NULL != current_xp)
+        {
+            if(hdl_xp == current_xp)
+            {
+                // we found the object to remove
+                last_xp->next_xp = current_xp->next_xp;
+                free(current_xp);
+                break;
+            }
+            last_xp = current_xp;
+            current_xp = current_xp->next_xp;
+        }
+    }
+}*/
 
 /**--------------------------------------------------------------------------------------
  * @brief     Function to initialize WIFI to access point mode
