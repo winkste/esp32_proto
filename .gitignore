@@ -23,3 +23,6 @@ espProto/sdkconfig 6
 espProto/sdkconfig 7
 espProto/sdkconfig 8
 espProto/sdkconfig 9
+esp32Proto_platformio/include/.DS_Store
+.DS_Store
+esp32Proto_platformio/src/secrets.h
