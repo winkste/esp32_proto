@@ -26,3 +26,5 @@ espProto/sdkconfig 9
 esp32Proto_platformio/include/.DS_Store
 .DS_Store
 esp32Proto_platformio/src/secrets.h
+esp32Proto_platformio/src/sdkconfig.h
+esp32Proto_platformio/src/sdkconfig.hneu.h
