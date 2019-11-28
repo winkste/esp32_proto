@@ -11,7 +11,7 @@ import socket
 import sys
 
 # -----------  Config  ---------- 
-PORT = 3333;
+PORT = 3333
 IP_VERSION = 'IPv4'
 IPV4 = '192.168.178.87'
 #IPV4 = '192.168.4.1'
