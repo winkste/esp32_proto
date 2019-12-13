@@ -58,13 +58,6 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 /****************************************************************************************/
 /* Local constant defines */
-#ifndef BIT0
-    #define BIT0    0x00000000
-    #define BIT1    0x00000001
-    #define BIT2    0x00000002
-    #define BIT3    0x00000004
-    #define BIT4    0x00000008
-#endif
 
 #define MQTT_SERVICE_ACTIVE 1
 #define MQTT_DEVICES_ACTIVE 1
@@ -116,8 +109,8 @@ static const ctrlData_t defaultControlData_stsc =
     .startupCounter_u32 = 0UL,
 };
 
-static const char *MQTT_HOST = "192.168.178.45";
-static const uint32_t mqttPort_u32sc = 1883;
+static const char *MQTT_HOST = secrets_MQTT_SERVER;
+static const uint32_t mqttPort_u32sc = secrets_MQTT_PORT;
 static const char *MQTT_USER_NAME = secrets_MQTT_USER_NAME;
 static const char *MQTT_PASSWORD = secrets_MQTT_PASSWORD;
 

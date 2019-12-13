@@ -113,7 +113,7 @@ typedef enum wifiMode_tag
 /***************************************************************************************/
 /* Local functions prototypes: */
 static void AddServiceToList_vd(wifiCtrl_serviceHdl_t hdl_xp);
-static void RemoveSubsFromList_vd(wifiCtrl_serviceHdl_t hdl_xp);
+//static void RemoveSubsFromList_vd(wifiCtrl_serviceHdl_t hdl_xp);
 static esp_err_t Reconnect_st(void);
 static void Task_vd(void *pvParameters);
 static int32_t CmdHandlerChangeParameter_s32(int32_t argc_s32, char** argv);

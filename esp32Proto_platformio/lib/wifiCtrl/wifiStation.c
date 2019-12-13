@@ -42,7 +42,6 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "tcpip_adapter.h"
 
 #include "utils.h"
-#include "sdkconfig.h"
 #include "wifiIf.h"
 
 
