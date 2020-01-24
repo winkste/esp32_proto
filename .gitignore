@@ -29,3 +29,4 @@ esp32Proto_platformio/src/secrets.h
 esp32Proto_platformio/src/sdkconfig.h
 esp32Proto_platformio/src/sdkconfig.hneu.h
 espProto_eclipse/sdkconfig
+*.sections_info
