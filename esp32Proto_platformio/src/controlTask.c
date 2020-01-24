@@ -118,8 +118,6 @@ static const char *MQTT_PASSWORD = secrets_MQTT_PASSWORD;
 static const char *CTRL_PARA_IDENT = "controls";
 static paramif_objHdl_t ctrlParaHdl_xps;
 
-static mqttdrv_param_t mqttParam_st;
-static devmgr_param_t devMgrParam_st;
 /****************************************************************************************/
 /* Global functions (unlimited visibility) */
 
@@ -143,6 +141,9 @@ esp_err_t controlTask_Initialize_st(void)
     paramif_param_t paramHdl_st;
     paramif_allocParam_t controlAllocParam_st;
     otaUpdate_param_t otaParam_st;
+
+    mqttdrv_param_t mqttParam_st;
+    devmgr_param_t devMgrParam_st;
 
     /* parameter initialization */
     CHECK_EXE(paramif_InitializeParameter_td(&paramHdl_st));
@@ -206,6 +207,7 @@ esp_err_t controlTask_Initialize_st(void)
     CHECK_EXE(devmgr_InitializeParameter(&devMgrParam_st));
     CHECK_EXE(devmgr_Initialize(&devMgrParam_st));
     ESP_LOGI(TAG, "generate devices...");
+    devmgr_RegisterDeviceCommands();
     devmgr_GenerateDevices();
 #endif
 

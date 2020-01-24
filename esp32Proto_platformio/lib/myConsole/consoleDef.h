@@ -1,10 +1,10 @@
 /*****************************************************************************************
-* FILENAME :        devmgr.h
+* FILENAME :        consoleDef.h
 *
 * DESCRIPTION :
-*       Header file for device manager
+*       Header file for console command handling definitions
 *
-* Date: 24. April 2019
+* Date: 31. December 2019
 *
 * NOTES :
 *
@@ -28,19 +28,37 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef DEVMGR_H_
-#define DEVMGR_H_
+#ifndef CONSOLEDEF_H
+#define CONSOLEDEF_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 /****************************************************************************************/
 /* Imported header files: */
 
+#include <stddef.h>
 #include "stdint.h"
-#include "esp_err.h"
-
-#include "stdbool.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
+
+#define consoleDef_CMD_ADR          0x0000
+#define consoleDef_LENGTH_ADR       0x0002
+#define consoleDef_REQ_DATA_ADR     0x0004
+#define consoleDef_ACK_ADR          0x0004
+#define consoleDef_RESP_DATA_ADR    0x0006
+
+#define consoleDef_CMD_LENGTH       0x0002
+#define consoleDef_LENGTH_LENGTH    0x0002
+#define consoleDef_ACK_LENGTH       0x0002
+#define consoleDef_MAX_DATA_LENGTH  0x4096
+#define consoleDef_MAX_REQ_LENGTH   0x409A
+#define consoleDef_MAX_RESP_LENGTH  0x409C
+
+#define consoleDef_GEN_CMDS         0x8000
+#define consoleDef_CMD_TABLE_END    0xFFFF
 
 /****************************************************************************************/
 /* Global function like macro defines (to be avoided): */
@@ -48,48 +66,27 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
-typedef struct devmgr_param_tag
+typedef uint16_t (*consoleDef_cmdFunc_t)(uint16_t *length_u16p, uint16_t *ack_u16p, 
+                                            void *src_vp, void *dest_vp);
+
+/**
+ * @brief Parameters for console initialization
+ */
+typedef struct 
 {
-}devmgr_param_t;
+    uint16_t cmdId_u16;                 //!< command identifier
+    consoleDef_cmdFunc_t cmdFunc_f;     //!< function pointer to command
+}consoleDefs_cmdTable_t;
+
 
 /****************************************************************************************/
 /* Global function definitions: */
 
-/**---------------------------------------------------------------------------------------
- * @brief     Initializes the initialization structure of the device manager module
- * @author    S. Wink
- * @date      24. Apr. 2019
- * @param     param_stp         pointer to the configuration structure
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_InitializeParameter(devmgr_param_t *param_stp);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Initialization of the device manager module
- * @author    S. Wink
- * @date      24. Apr. 2019
- * @param     param_stp         pointer to the configuration structure
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_Initialize(devmgr_param_t *param_stp);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Starts the devices which are setup per parameter
- * @author    S. Wink
- * @date      24. Apr. 2019
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-extern void devmgr_GenerateDevices(void);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Function to register device controlling commands
- * @author    S. Wink
- * @date      24. Jan. 2019
-*//*-----------------------------------------------------------------------------------*/
-extern void devmgr_RegisterDeviceCommands(void);
-
 /****************************************************************************************/
 /* Global data definitions: */
 
+#ifdef __cplusplus
+}
 #endif
 
+#endif //MYCONSOLE_H

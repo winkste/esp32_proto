@@ -1,10 +1,10 @@
 /*****************************************************************************************
-* FILENAME :        devmgr.h
+* FILENAME :        cmdExec.h
 *
 * DESCRIPTION :
-*       Header file for device manager
+*       Header file for console command table handling
 *
-* Date: 24. April 2019
+* Date: 31. December 2019
 *
 * NOTES :
 *
@@ -28,16 +28,21 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef DEVMGR_H_
-#define DEVMGR_H_
+#ifndef CMDEXEC_H
+#define CMDEXEC_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 /****************************************************************************************/
 /* Imported header files: */
 
+#include <stddef.h>
 #include "stdint.h"
-#include "esp_err.h"
 
-#include "stdbool.h"
+#include "esp_err.h"
+#include "consoleDef.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
@@ -48,48 +53,50 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
-typedef struct devmgr_param_tag
+typedef struct cmdExec_param_t
 {
-}devmgr_param_t;
+    consoleDefs_cmdTable_t *table_stp;
+}cmdExec_param_t;
 
 /****************************************************************************************/
 /* Global function definitions: */
 
 /**---------------------------------------------------------------------------------------
- * @brief     Initializes the initialization structure of the device manager module
+ * @brief     Initializes the initialization structure of the cmmand table module
  * @author    S. Wink
- * @date      24. Apr. 2019
+ * @date      04. Jan. 2020
  * @param     param_stp         pointer to the configuration structure
  * @return    n/a
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_InitializeParameter(devmgr_param_t *param_stp);
+extern esp_err_t cmdExec_InitializeParameter_td(cmdExec_param_t *param_stp);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Initialization of the device manager module
- * @author    S. Wink
- * @date      24. Apr. 2019
- * @param     param_stp         pointer to the configuration structure
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_Initialize(devmgr_param_t *param_stp);
+ * @brief   initializes the command table structure. 
+ * @author  S. Wink
+ * @date    04. Jan. 2020
+* @param     param_stp         pointer to the configuration structure
+ * @return
+ *          - ESP_OK on success
+ *          - ESP_ERR_NO_MEM if out of memory
+ *          - ESP_ERR_INVALID_STATE if not initialized
+*//*------------------------------------------------------------------------------------*/
+extern esp_err_t cmdExec_Initialize_td(cmdExec_param_t *param_stp);
 
 /**---------------------------------------------------------------------------------------
- * @brief     Starts the devices which are setup per parameter
- * @author    S. Wink
- * @date      24. Apr. 2019
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-extern void devmgr_GenerateDevices(void);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Function to register device controlling commands
- * @author    S. Wink
- * @date      24. Jan. 2019
-*//*-----------------------------------------------------------------------------------*/
-extern void devmgr_RegisterDeviceCommands(void);
+ * @brief   search for a command in the command table and executes it. 
+ * @author  S. Wink
+ * @date    04. Jan. 2020
+ * @param   *inMsg_vp   pointer to the input message
+ * @param   *outMsg_vp  point to the output message
+ * @return  length of response command in outMessage buffer
+*//*------------------------------------------------------------------------------------*/
+extern uint16_t cmdExec_Execute_td(void *inMsg_vp, void *outMsg_vp);
 
 /****************************************************************************************/
 /* Global data definitions: */
 
+#ifdef __cplusplus
+}
 #endif
 
+#endif //CMDEXEC_H

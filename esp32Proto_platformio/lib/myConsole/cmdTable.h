@@ -1,10 +1,10 @@
 /*****************************************************************************************
-* FILENAME :        devmgr.h
+* FILENAME :        cmdTable.h
 *
 * DESCRIPTION :
-*       Header file for device manager
+*       Header file for console command table 
 *
-* Date: 24. April 2019
+* Date: 31. December 2019
 *
 * NOTES :
 *
@@ -28,16 +28,21 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef DEVMGR_H_
-#define DEVMGR_H_
+#ifndef CMDTABLE_H
+#define CMDTABLE_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 /****************************************************************************************/
 /* Imported header files: */
 
+#include <stddef.h>
 #include "stdint.h"
-#include "esp_err.h"
 
-#include "stdbool.h"
+#include "esp_err.h"
+#include "consoleDef.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
@@ -48,48 +53,20 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
-typedef struct devmgr_param_tag
-{
-}devmgr_param_t;
-
 /****************************************************************************************/
 /* Global function definitions: */
-
-/**---------------------------------------------------------------------------------------
- * @brief     Initializes the initialization structure of the device manager module
- * @author    S. Wink
- * @date      24. Apr. 2019
- * @param     param_stp         pointer to the configuration structure
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_InitializeParameter(devmgr_param_t *param_stp);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Initialization of the device manager module
- * @author    S. Wink
- * @date      24. Apr. 2019
- * @param     param_stp         pointer to the configuration structure
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_Initialize(devmgr_param_t *param_stp);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Starts the devices which are setup per parameter
- * @author    S. Wink
- * @date      24. Apr. 2019
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-extern void devmgr_GenerateDevices(void);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Function to register device controlling commands
- * @author    S. Wink
- * @date      24. Jan. 2019
-*//*-----------------------------------------------------------------------------------*/
-extern void devmgr_RegisterDeviceCommands(void);
 
 /****************************************************************************************/
 /* Global data definitions: */
 
+static const consoleDefs_cmdTable_t cmdTable_TABLE[] = 
+{
+    consoleDef_GEN_CMDS + 0x0001,   NULL,     // help command to read all available cmds
+    consoleDef_CMD_TABLE_END,       NULL,     // end of command table marker
+};
+
+#ifdef __cplusplus
+}
 #endif
 
+#endif //CMDTABLE_H
