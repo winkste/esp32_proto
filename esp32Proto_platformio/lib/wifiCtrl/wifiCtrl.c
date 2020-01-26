@@ -236,7 +236,7 @@ esp_err_t wifiCtrl_Initialize_st(wifiIf_service_t *service_stp)
 
     if(true == exeResult_bol)
     {
-        result_st = ESP_FAIL;
+        result_st = ESP_OK;
         SetAndCheckState_st(STATE_INITIALIZED);
     }
 

@@ -527,6 +527,9 @@ static esp_err_t MqttEventHandler_st(esp_mqtt_event_handle_t event_stp)
             ESP_LOGD(TAG, "MQTT_EVENT_CONNECTED");
             HandleConnect_vd(event_stp);
             break;
+        case MQTT_EVENT_BEFORE_CONNECT:
+            ESP_LOGD(TAG, "MQTT_EVENT_BEFORE_CONNECT");
+            break;
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGD(TAG, "MQTT_EVENT_DISCONNECTED");
             HandleDisconnect_vd(event_stp);
@@ -552,7 +555,7 @@ static esp_err_t MqttEventHandler_st(esp_mqtt_event_handle_t event_stp)
             HandleError_vd(event_stp);
             break;
         default:
-            ESP_LOGD(TAG, "default");
+            ESP_LOGD(TAG, "unknown event detected: %d", event_stp->event_id);
             HandleError_vd(event_stp);
             break;
     }

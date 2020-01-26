@@ -155,7 +155,7 @@ extern esp_err_t devmgr_Initialize(devmgr_param_t *param_stp)
     bool exeResult_bol = true;
     paramif_allocParam_t deviceAllocParam_st;
 
-    result_st &= CHECK_EXE(paramif_InitializeAllocParameter_td(&deviceAllocParam_st));
+    exeResult_bol &= CHECK_EXE(paramif_InitializeAllocParameter_td(&deviceAllocParam_st));
     deviceAllocParam_st.length_u16 = sizeof(obj_sts.para_st);
     deviceAllocParam_st.defaults_u8p = (uint8_t *)&DEFAULT_PARA;
     deviceAllocParam_st.nvsIdent_cp = MODE_PARA_IDENT;
@@ -167,7 +167,13 @@ extern esp_err_t devmgr_Initialize(devmgr_param_t *param_stp)
     ESP_LOGI(TAG, "device id: %d", obj_sts.para_st.devId_en);
     ESP_LOGI(TAG, "device location %s", obj_sts.para_st.devLoc_cha);
 
-    obj_sts.state_st = STATE_INITIALIZED;
+    devmgr_RegisterDeviceCommands();
+    
+    if(true == exeResult_bol)
+    {
+        obj_sts.state_st = STATE_INITIALIZED;
+        result_st = ESP_OK;
+    }
 
     return(result_st);
 }

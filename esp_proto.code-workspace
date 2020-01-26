@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "esp32Proto_platformio"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"task.h": "c",
+			"mqttdrv.h": "c",
+			"esp_partition.h": "c",
+			"esp_spi_flash.h": "c",
+			"myconsole.h": "c",
+			"utils.h": "c",
+			"appident.h": "c",
+			"semphr.h": "c"
+		}
+	}
+}

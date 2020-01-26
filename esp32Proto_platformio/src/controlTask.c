@@ -2,7 +2,7 @@
 * FILENAME :        controlTask.c
 *
 * DESCRIPTION :
-*       This module
+*       This module is the startpoint for my specific application
 *
 * AUTHOR :    Stephan Wink        CREATED ON :    24.01.2019
 *
@@ -59,9 +59,6 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Local constant defines */
 
-#define MQTT_SERVICE_ACTIVE 1
-#define MQTT_DEVICES_ACTIVE 1
-
 #define MODULE_TAG "controlTask"
 #define CHECK_EXE(arg) utils_CheckAndLogExecution_vd(MODULE_TAG, arg, __LINE__)
 
@@ -77,13 +74,21 @@ typedef struct ctrlData_tag
 
 /****************************************************************************************/
 /* Local functions prototypes: */
-static void RegisterCommands(void);
+static void RegisterCommands_vd(void);
 static int CommandInfoHandler_i(int argc, char** argv);
 static int CommandRebootHandler_i(int argc, char** argv);
-static void ServiceCbWifiStationConn(void);
-static void ServiceCbWifiApClientConn(void);
-static void ServiceCbWifiDisconnected(void);
-static void PrintFirmwareIdent(void);
+static void ServiceCbWifiStationConn_vd(void);
+static void ServiceCbWifiApClientConn_vd(void);
+static void ServiceCbWifiDisconnected_vd(void);
+static void StartFullService_vd(void);
+static void StartSelfServicesOnly_vd(void);
+static void SocketErrorCb_vd(void);
+static void PrintFirmwareIdent_vd(void);
+
+static void InitializeParameterHandling_vd(void);
+static void StartupAndApplicationIdent_vd(void);
+static void InitializeWifi_vd(void);
+static void InitializeBasicWifiServices_vd(void);
 
 /****************************************************************************************/
 /* Local variables: */
@@ -116,7 +121,6 @@ static const char *MQTT_PASSWORD = secrets_MQTT_PASSWORD;
 
 
 static const char *CTRL_PARA_IDENT = "controls";
-static paramif_objHdl_t ctrlParaHdl_xps;
 
 /****************************************************************************************/
 /* Global functions (unlimited visibility) */
@@ -127,102 +131,41 @@ static paramif_objHdl_t ctrlParaHdl_xps;
 esp_err_t controlTask_Initialize_st(void)
 {
     esp_err_t success_st = ESP_OK;
-
-    socketServer_parameter_t sockParam_st =
-    {
-        controlTask_SetEventSocketError
-    };
-
     myConsole_config_t consoleConfig_st =
     {
             .max_cmdline_args = 8,
             .max_cmdline_length = 2048,
     };
-    paramif_param_t paramHdl_st;
-    paramif_allocParam_t controlAllocParam_st;
-    otaUpdate_param_t otaParam_st;
-
-    mqttdrv_param_t mqttParam_st;
     devmgr_param_t devMgrParam_st;
 
-    /* parameter initialization */
-    CHECK_EXE(paramif_InitializeParameter_td(&paramHdl_st));
-    CHECK_EXE(paramif_Initialize_td(&paramHdl_st));
-    CHECK_EXE(paramif_InitializeAllocParameter_td(&controlAllocParam_st));
-    controlAllocParam_st.length_u16 = sizeof(ctrlData_t);
-    controlAllocParam_st.defaults_u8p = (uint8_t *)&defaultControlData_stsc;
-    controlAllocParam_st.nvsIdent_cp = CTRL_PARA_IDENT;
-    ctrlParaHdl_xps = paramif_Allocate_stp(&controlAllocParam_st);
+    esp_log_level_set("efuse", ESP_LOG_WARN);
+    
+    InitializeParameterHandling_vd();
 
     /* initialize console object for message processing */
     CHECK_EXE(myConsole_Init_td(&consoleConfig_st));
     myConsole_RegisterHelpCommand();
-    RegisterCommands();
+    RegisterCommands_vd();
 
-    /* initialize and register Version information */
-    CHECK_EXE(appIdent_Initialize_st());
-    PrintFirmwareIdent();
-
+    StartupAndApplicationIdent_vd();
 
     /* setup event group for event receiving from other tasks and processes */
     controlEventGroup_sts = xEventGroupCreate();
 
-    wifiIf_service_t services_st =
-    {
-        ServiceCbWifiStationConn,
-        ServiceCbWifiDisconnected,
-        ServiceCbWifiApClientConn
-    };
-    wifiCtrl_Initialize_st(&services_st);
-    wifiCtrl_Start_st();
-    wifiCtrl_RegisterWifiCommands();
+    InitializeWifi_vd();
 
-    consoleSocket_Initialize_st(&sockParam_st);
+    InitializeBasicWifiServices_vd();
 
-
-    /* update startup counter in none volatile memory */
-    CHECK_EXE(paramif_Read_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
-    controlData_sts.startupCounter_u32++;
-    CHECK_EXE(paramif_Write_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
-    ESP_LOGI(TAG, "New startup detected, system restarted %d times.",
-                controlData_sts.startupCounter_u32);
-
-    /* initialize over the air firmware update */
-    otaUpdate_InitializeParameter_td(&otaParam_st);
-    otaUpdate_Initialize_td(&otaParam_st);
-
-#ifdef MQTT_SERVICE_ACTIVE
-    /* initialize the mqtt driver including the mqtt client */
-    CHECK_EXE(mqttdrv_InitializeParameter(&mqttParam_st));
-    memcpy(mqttParam_st.host_u8a, MQTT_HOST, strlen(MQTT_HOST));
-    mqttParam_st.port_u32 = mqttPort_u32sc;
-    memcpy(mqttParam_st.userName_u8a, MQTT_USER_NAME, strlen(MQTT_USER_NAME));
-    memcpy(mqttParam_st.userPwd_u8a, MQTT_PASSWORD, strlen(MQTT_PASSWORD));
-    CHECK_EXE(mqttdrv_Initialize(&mqttParam_st));
-
-#endif
-
-#ifdef MQTT_DEVICES_ACTIVE
     /* initialize device manager */
+    ESP_LOGI(TAG, "generate devices...");
     CHECK_EXE(devmgr_InitializeParameter(&devMgrParam_st));
     CHECK_EXE(devmgr_Initialize(&devMgrParam_st));
-    ESP_LOGI(TAG, "generate devices...");
-    devmgr_RegisterDeviceCommands();
+    //devmgr_RegisterDeviceCommands();
     devmgr_GenerateDevices();
-#endif
 
     /* start the control task */
     xTaskCreate(controlTask_Task_vd, "controlTask", 4096, NULL, 5, NULL);
     return(success_st);
-}
-
-/**---------------------------------------------------------------------------------------
- * @brief     Callback function to notify task that socket run to an error
-*//*-----------------------------------------------------------------------------------*/
-void controlTask_SetEventSocketError(void)
-{
-    ESP_LOGI(TAG, "callback controlTask_SetEventSocketError...");
-    xEventGroupSetBits(controlEventGroup_sts, SOCKET_ERROR);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -242,18 +185,12 @@ void controlTask_Task_vd(void *pvParameters)
 
         if(0 != (uxBits_st & WIFI_STATION))
         {
-            ESP_LOGI(TAG, "WIFI_STATION received...");
-            consoleSocket_Activate_vd();
-            //udpLog_Init_st( "192.168.178.25", 1337);
-            mqttdrv_StartMqttDemon();
-
+            StartFullService_vd();
         }
 
         if(0 != (uxBits_st & WIFI_AP_CLIENT))
         {
-            ESP_LOGI(TAG, "WIFI_AP_CLIENT received...");
-            consoleSocket_Activate_vd();
-            //udpLog_Init_st( "192.168.178.25", 1337);
+            StartSelfServicesOnly_vd();   
         }
 
         if(0 != (uxBits_st & WIFI_DISCONN))
@@ -284,7 +221,7 @@ void controlTask_Task_vd(void *pvParameters)
  * @author    S. Wink
  * @date      24. Jan. 2019
 *//*-----------------------------------------------------------------------------------*/
-static void RegisterCommands(void)
+static void RegisterCommands_vd(void)
 {
     const myConsole_cmd_t infoCmd_stc =
     {
@@ -315,7 +252,7 @@ static void RegisterCommands(void)
 static int CommandInfoHandler_i(int argc, char** argv)
 {
     ESP_LOGI(TAG, "information request command received");
-    PrintFirmwareIdent();
+    PrintFirmwareIdent_vd();
     return(0);
 }
 
@@ -338,13 +275,10 @@ static int CommandRebootHandler_i(int argc, char** argv)
  * @brief     Service callback function, when connected to a wifi station
  * @author    S. Wink
  * @date      06. Sep. 2019
- * @param     argc  count of argument list
- * @param     argv  pointer to argument list
- * @return    not equal to zero if error detected
 *//*-----------------------------------------------------------------------------------*/
-static void ServiceCbWifiStationConn(void)
+static void ServiceCbWifiStationConn_vd(void)
 {
-    ESP_LOGI(TAG, "callback ServiceCbWifiStationConn...");
+    ESP_LOGI(TAG, "callback ServiceCbWifiStationConn_vd...");
     xEventGroupSetBits(controlEventGroup_sts, WIFI_STATION);
 }
 
@@ -352,13 +286,10 @@ static void ServiceCbWifiStationConn(void)
  * @brief     Service callback function, when in AP mode a client is connected
  * @author    S. Wink
  * @date      06. Sep. 2019
- * @param     argc  count of argument list
- * @param     argv  pointer to argument list
- * @return    not equal to zero if error detected
 *//*-----------------------------------------------------------------------------------*/
-static void ServiceCbWifiApClientConn(void)
+static void ServiceCbWifiApClientConn_vd(void)
 {
-    ESP_LOGI(TAG, "callback ServiceCbWifiApClientConn...");
+    ESP_LOGI(TAG, "callback ServiceCbWifiApClientConn_vd...");
     xEventGroupSetBits(controlEventGroup_sts, WIFI_AP_CLIENT);
 }
 
@@ -366,14 +297,49 @@ static void ServiceCbWifiApClientConn(void)
  * @brief     Service callback function, when wifi is disconnected
  * @author    S. Wink
  * @date      06. Sep. 2019
- * @param     argc  count of argument list
- * @param     argv  pointer to argument list
- * @return    not equal to zero if error detected
 *//*-----------------------------------------------------------------------------------*/
-static void ServiceCbWifiDisconnected(void)
+static void ServiceCbWifiDisconnected_vd(void)
 {
-    ESP_LOGI(TAG, "callback ServiceCbWifiDisconnected...");
+    ESP_LOGI(TAG, "callback ServiceCbWifiDisconnected_vd...");
     xEventGroupSetBits(controlEventGroup_sts, WIFI_DISCONN);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Starts all services when we are connected to an access point.
+ * @author    S. Wink
+ * @date      25. Jan. 2020
+*//*-----------------------------------------------------------------------------------*/
+static void StartFullService_vd(void)
+{
+    ESP_LOGI(TAG, "WIFI_STATION received...");
+    consoleSocket_Activate_vd();
+    //udpLog_Init_st( "192.168.178.25", 1337);
+    mqttdrv_StartMqttDemon();
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     This function only starts services which are available if the device is
+ *              not connected to an access point and opened its own access point for 
+ *              maintenence and support.
+ * @author    S. Wink
+ * @date      25. Jan. 2020
+*//*-----------------------------------------------------------------------------------*/
+static void StartSelfServicesOnly_vd(void)
+{
+    ESP_LOGI(TAG, "WIFI_AP_CLIENT received...");
+    consoleSocket_Activate_vd();
+    //udpLog_Init_st( "192.168.178.25", 1337);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Callback function to notify task that socket run to an error
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+*//*-----------------------------------------------------------------------------------*/
+static void SocketErrorCb_vd(void)
+{
+    ESP_LOGI(TAG, "callback SocketErrorCb_vd...");
+    xEventGroupSetBits(controlEventGroup_sts, SOCKET_ERROR);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -381,14 +347,14 @@ static void ServiceCbWifiDisconnected(void)
  * @author    S. Wink
  * @date      06. Sep. 2019
 *//*-----------------------------------------------------------------------------------*/
-static void PrintFirmwareIdent(void)
+static void PrintFirmwareIdent_vd(void)
 {
     ESP_LOGI(TAG, "----------------------------------------------------");
     ESP_LOGI(TAG, "Firmware PN: %s", appIdent_GetFwIdentifier_cch());
     ESP_LOGI(TAG, "Firmware Version: %s", appIdent_GetFwVersion_cch());
     ESP_LOGI(TAG, "Firmware Desc: %s", appIdent_GetFwDescription_cch());
     ESP_LOGI(TAG, "----------------------------------------------------");
-    if(NULL != ctrlParaHdl_xps)
+    /*if(NULL != ctrlParaHdl_xps)
     {
         ESP_ERROR_CHECK(paramif_Read_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
         ESP_LOGI(TAG, "startups detected: %d", controlData_sts.startupCounter_u32);
@@ -397,7 +363,100 @@ static void PrintFirmwareIdent(void)
     {
         ESP_LOGE(TAG, "startup counter not readable...");
     }
+    ESP_LOGI(TAG, "----------------------------------------------------");*/
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Initialize and configer the parameter handling
+ * @author    S. Wink
+ * @date      25. Jan. 2020
+*//*-----------------------------------------------------------------------------------*/
+static void InitializeParameterHandling_vd(void)
+{
+    paramif_param_t paramHdl_st;
+
+    CHECK_EXE(paramif_InitializeParameter_td(&paramHdl_st));
+    CHECK_EXE(paramif_Initialize_td(&paramHdl_st));
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     print and update startup counter and print firmware identifications
+ * @author    S. Wink
+ * @date      25. Jan. 2020
+*//*-----------------------------------------------------------------------------------*/
+static void StartupAndApplicationIdent_vd(void)
+{
+    paramif_allocParam_t controlAllocParam_st;
+    static paramif_objHdl_t ctrlParaHdl_xp;
+
+    /* initialize and register Version information */
+    CHECK_EXE(appIdent_Initialize_st());
+    PrintFirmwareIdent_vd();
+
+    CHECK_EXE(paramif_InitializeAllocParameter_td(&controlAllocParam_st));
+    controlAllocParam_st.length_u16 = sizeof(ctrlData_t);
+    controlAllocParam_st.defaults_u8p = (uint8_t *)&defaultControlData_stsc;
+    controlAllocParam_st.nvsIdent_cp = CTRL_PARA_IDENT;
+    ctrlParaHdl_xp = paramif_Allocate_stp(&controlAllocParam_st);
+
+    /* update startup counter in none volatile memory */
+    CHECK_EXE(paramif_Read_td(ctrlParaHdl_xp, (uint8_t *) &controlData_sts));
+    controlData_sts.startupCounter_u32++;
+    CHECK_EXE(paramif_Write_td(ctrlParaHdl_xp, (uint8_t *) &controlData_sts));
+    ESP_LOGI(TAG, "New startup detected, system restarted %d times.",
+                controlData_sts.startupCounter_u32);
     ESP_LOGI(TAG, "----------------------------------------------------");
 }
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Initialze WIFI service
+ * @author    S. Wink
+ * @date      25. Jan. 2020
+*//*-----------------------------------------------------------------------------------*/
+static void InitializeWifi_vd(void)
+{
+    wifiIf_service_t services_st =
+    {
+        ServiceCbWifiStationConn_vd,
+        ServiceCbWifiDisconnected_vd,
+        ServiceCbWifiApClientConn_vd
+    };
+
+    CHECK_EXE(wifiCtrl_Initialize_st(&services_st));
+    CHECK_EXE(wifiCtrl_Start_st());
+    wifiCtrl_RegisterWifiCommands();
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Initialze WIFI service
+ * @author    S. Wink
+ * @date      25. Jan. 2020
+*//*-----------------------------------------------------------------------------------*/
+static void InitializeBasicWifiServices_vd(void)
+{
+    socketServer_parameter_t sockParam_st =
+    {
+        SocketErrorCb_vd
+    };
+    otaUpdate_param_t otaParam_st;
+    mqttdrv_param_t mqttParam_st;
+
+    consoleSocket_Initialize_st(&sockParam_st);
+
+    /* initialize over the air firmware update */
+    otaUpdate_InitializeParameter_td(&otaParam_st);
+    otaUpdate_Initialize_td(&otaParam_st);
+
+    /* initialize the mqtt driver including the mqtt client */
+    CHECK_EXE(mqttdrv_InitializeParameter(&mqttParam_st));
+    memcpy(mqttParam_st.host_u8a, MQTT_HOST, strlen(MQTT_HOST));
+    mqttParam_st.port_u32 = mqttPort_u32sc;
+    memcpy(mqttParam_st.userName_u8a, MQTT_USER_NAME, strlen(MQTT_USER_NAME));
+    memcpy(mqttParam_st.userPwd_u8a, MQTT_PASSWORD, strlen(MQTT_PASSWORD));
+    CHECK_EXE(mqttdrv_Initialize(&mqttParam_st));
+}
+
+
+
 
 
