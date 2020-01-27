@@ -74,6 +74,7 @@ typedef struct ctrlData_tag
 
 /****************************************************************************************/
 /* Local functions prototypes: */
+static void Task_vd(void *param_vdp);
 static void RegisterCommands_vd(void);
 static int CommandInfoHandler_i(int argc, char** argv);
 static int CommandRebootHandler_i(int argc, char** argv);
@@ -126,9 +127,9 @@ static const char *CTRL_PARA_IDENT = "controls";
 /* Global functions (unlimited visibility) */
 
 /**---------------------------------------------------------------------------------------
- * @brief     Initialization function for control task
+ * @brief     Start function for control task
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t controlTask_Initialize_st(void)
+esp_err_t controlTask_StartSystem_td(void)
 {
     esp_err_t success_st = ESP_OK;
     myConsole_config_t consoleConfig_st =
@@ -139,7 +140,7 @@ esp_err_t controlTask_Initialize_st(void)
     devmgr_param_t devMgrParam_st;
 
     esp_log_level_set("efuse", ESP_LOG_WARN);
-    
+
     InitializeParameterHandling_vd();
 
     /* initialize console object for message processing */
@@ -164,14 +165,20 @@ esp_err_t controlTask_Initialize_st(void)
     devmgr_GenerateDevices();
 
     /* start the control task */
-    xTaskCreate(controlTask_Task_vd, "controlTask", 4096, NULL, 5, NULL);
+    xTaskCreate(Task_vd, "controlTask", 4096, NULL, 5, NULL);
     return(success_st);
 }
 
-/**---------------------------------------------------------------------------------------
+/****************************************************************************************/
+/* Local functions: */
+
+/**--------------------------------------------------------------------------------------
  * @brief     task routine for the control handling
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+ * @param     pvParameters      interface variable from freertos
 *//*-----------------------------------------------------------------------------------*/
-void controlTask_Task_vd(void *pvParameters)
+static void Task_vd(void *param_vdp)
 {
     EventBits_t uxBits_st;
     uint32_t bits_u32 = WIFI_STATION | WIFI_AP_CLIENT | WIFI_DISCONN |
@@ -212,9 +219,6 @@ void controlTask_Task_vd(void *pvParameters)
         }
     }
 }
-
-/****************************************************************************************/
-/* Local functions: */
 
 /**---------------------------------------------------------------------------------------
  * @brief     Registration of the supported console commands
@@ -314,7 +318,7 @@ static void StartFullService_vd(void)
     ESP_LOGI(TAG, "WIFI_STATION received...");
     consoleSocket_Activate_vd();
     //udpLog_Init_st( "192.168.178.25", 1337);
-    mqttdrv_StartMqttDemon();
+    mqttdrv_StartMqttDemon_vd();
 }
 
 /**---------------------------------------------------------------------------------------
@@ -448,12 +452,12 @@ static void InitializeBasicWifiServices_vd(void)
     otaUpdate_Initialize_td(&otaParam_st);
 
     /* initialize the mqtt driver including the mqtt client */
-    CHECK_EXE(mqttdrv_InitializeParameter(&mqttParam_st));
+    CHECK_EXE(mqttdrv_InitializeParameter_td(&mqttParam_st));
     memcpy(mqttParam_st.host_u8a, MQTT_HOST, strlen(MQTT_HOST));
     mqttParam_st.port_u32 = mqttPort_u32sc;
     memcpy(mqttParam_st.userName_u8a, MQTT_USER_NAME, strlen(MQTT_USER_NAME));
     memcpy(mqttParam_st.userPwd_u8a, MQTT_PASSWORD, strlen(MQTT_PASSWORD));
-    CHECK_EXE(mqttdrv_Initialize(&mqttParam_st));
+    CHECK_EXE(mqttdrv_Initialize_td(&mqttParam_st));
 }
 
 

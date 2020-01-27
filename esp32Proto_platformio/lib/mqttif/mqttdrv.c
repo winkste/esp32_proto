@@ -48,15 +48,12 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 /****************************************************************************************/
 /* Local constant defines */
-#ifndef BIT0
-    #define BIT0    0x00000000
-    #define BIT1    0x00000001
-    #define BIT2    0x00000002
-    #define BIT3    0x00000004
-#endif
+
+#define MODULE_TAG "mqttdrv"
 
 /****************************************************************************************/
 /* Local function like makros */
+#define CHECK_EXE(arg) utils_CheckAndLogExecution_vd(MODULE_TAG, arg, __LINE__)
 
 /****************************************************************************************/
 /* Local type definitions (enum, struct, union) */
@@ -104,18 +101,18 @@ static void Task_vd(void *pvParameters);
 /****************************************************************************************/
 /* Local variables: */
 
-static const char *TAG = "mqttdrv";
+static const char *TAG = MODULE_TAG;
 
 static const int START_MQTT    = BIT0;
 static const int STOP_MQTT     = BIT1;
 static const int PUBLISH_REQ   = BIT2;
 static const int MQTT_ERR      = BIT3;
 
-static objectData_t singleton_sst =
+static objectData_t this_sst =
 {
-        .state_en = STATE_NOT_INITIALIZED,
-        .client_xp = NULL,
-        .subst_xp = NULL,
+    .state_en = STATE_NOT_INITIALIZED,
+    .client_xp = NULL,
+    .subst_xp = NULL,
 };
 
 static EventGroupHandle_t mqttEventGroup_sts;
@@ -131,17 +128,16 @@ static mqttif_msg_t pubMsg_sts;
 /**---------------------------------------------------------------------------------------
  * @brief     Initializes the initialization structure of the mqtt module
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t mqttdrv_InitializeParameter(mqttdrv_param_t *param_stp)
+esp_err_t mqttdrv_InitializeParameter_td(mqttdrv_param_t *param_stp)
 {
     memset(param_stp, 0U, sizeof(*param_stp));
-
     return(ESP_OK);
 }
 
 /**---------------------------------------------------------------------------------------
  * @brief     Initialization of the mqtt module
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t mqttdrv_Initialize(mqttdrv_param_t *param_stp)
+esp_err_t mqttdrv_Initialize_td(mqttdrv_param_t *param_stp)
 {
     esp_err_t result_st = ESP_FAIL;
     esp_mqtt_client_config_t mqttCfg_st;
@@ -152,8 +148,8 @@ esp_err_t mqttdrv_Initialize(mqttdrv_param_t *param_stp)
 
     ESP_LOGD(TAG, "initialize mqtt...");
 
-    if(     (STATE_DISCONNECTED == singleton_sst.state_en)
-         || (STATE_NOT_INITIALIZED == singleton_sst.state_en))
+    if(     (STATE_DISCONNECTED == this_sst.state_en)
+         || (STATE_NOT_INITIALIZED == this_sst.state_en))
     {
         if(NULL != param_stp)
         {
@@ -168,18 +164,18 @@ esp_err_t mqttdrv_Initialize(mqttdrv_param_t *param_stp)
             mqttCfg_st.event_handle = MqttEventHandler_st;
 
             // cleanup the client before initialize to ensure old conncetions are closed
-            if(NULL != singleton_sst.client_xp)
+            if(NULL != this_sst.client_xp)
             {
-                (void)esp_mqtt_client_destroy(singleton_sst.client_xp);
+                (void)esp_mqtt_client_destroy(this_sst.client_xp);
             }
 
             ESP_LOGD(TAG, "connect to %s, port:%d",mqttCfg_st.host, mqttCfg_st.port);
             ESP_LOGD(TAG, "usr:%s, pwd:%s", mqttCfg_st.username, mqttCfg_st.password);
-            singleton_sst.client_xp = esp_mqtt_client_init(&mqttCfg_st);
-            if(NULL != singleton_sst.client_xp)
+            this_sst.client_xp = esp_mqtt_client_init(&mqttCfg_st);
+            if(NULL != this_sst.client_xp)
             {
                 result_st = ESP_OK;
-                singleton_sst.state_en = STATE_INITIALIZED;
+                this_sst.state_en = STATE_INITIALIZED;
                 ESP_LOGD(TAG, "mqtt client initialized successful...");
             }
             else
@@ -228,9 +224,9 @@ esp_err_t mqttdrv_Initialize(mqttdrv_param_t *param_stp)
 /**---------------------------------------------------------------------------------------
  * @brief     Starts the MQTT demon if it was initialized
 *//*-----------------------------------------------------------------------------------*/
-void mqttdrv_StartMqttDemon(void)
+void mqttdrv_StartMqttDemon_vd(void)
 {
-    if(STATE_INITIALIZED == singleton_sst.state_en)
+    if(STATE_INITIALIZED == this_sst.state_en)
     {
         xEventGroupSetBits(mqttEventGroup_sts, START_MQTT);
     }
@@ -239,7 +235,7 @@ void mqttdrv_StartMqttDemon(void)
 /**---------------------------------------------------------------------------------------
  * @brief     Initialize subscription parameter
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t mqttdrv_InitSubscriptParam(mqttif_substParam_t *subsParam_stp)
+esp_err_t mqttdrv_InitSubscriptParam_td(mqttif_substParam_t *subsParam_stp)
 {
     esp_err_t result_st = ESP_OK;
 
@@ -302,7 +298,7 @@ esp_err_t mqttdrv_DeAllocSubs_st(mqttdrv_subsHdl_t subsHdl_xp)
         if(true == subsHdl_xp->subscribed_bol)
         {
             // topic is still subscribed, first remove the subscription
-            result_st = mqttdrv_UnSubscribe(subsHdl_xp);
+            result_st = mqttdrv_UnSubscribe_td(subsHdl_xp);
 
             // now, remove subscription entry from list
             RemoveSubsFromList_vd(subsHdl_xp);
@@ -320,13 +316,13 @@ esp_err_t mqttdrv_DeAllocSubs_st(mqttdrv_subsHdl_t subsHdl_xp)
 /**---------------------------------------------------------------------------------------
  * @brief     Subscribe to a MQTT message
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t mqttdrv_Subscribe_xp(mqttdrv_subsHdl_t subsHdl_xp)
+esp_err_t mqttdrv_Subscribe_td(mqttdrv_subsHdl_t subsHdl_xp)
 {
     esp_err_t result_st = ESP_FAIL;
 
     if(NULL != subsHdl_xp)
     {
-        result_st = esp_mqtt_client_subscribe(singleton_sst.client_xp,
+        result_st = esp_mqtt_client_subscribe(this_sst.client_xp,
                                               (char *)&subsHdl_xp->param_st.topic_u8a[0],
                                               subsHdl_xp->param_st.qos_u32);
         if(ESP_OK == result_st)
@@ -352,13 +348,13 @@ esp_err_t mqttdrv_Subscribe_xp(mqttdrv_subsHdl_t subsHdl_xp)
 /**---------------------------------------------------------------------------------------
  * @brief     Un-Subscribe MQTT message
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t mqttdrv_UnSubscribe(mqttdrv_subsHdl_t subsHdl_xp)
+esp_err_t mqttdrv_UnSubscribe_td(mqttdrv_subsHdl_t subsHdl_xp)
 {
     esp_err_t result_st = ESP_FAIL;
 
     if(NULL != subsHdl_xp)
     {
-        result_st = esp_mqtt_client_unsubscribe(singleton_sst.client_xp,
+        result_st = esp_mqtt_client_unsubscribe(this_sst.client_xp,
                                              (char *)&subsHdl_xp->param_st.topic_u8a[0]);
         if(ESP_OK == result_st)
         {
@@ -381,10 +377,10 @@ esp_err_t mqttdrv_UnSubscribe(mqttdrv_subsHdl_t subsHdl_xp)
 /**---------------------------------------------------------------------------------------
  * @brief     Get the number of all allocated subscriptions in the list
 *//*-----------------------------------------------------------------------------------*/
-uint8_t mqttdrv_GetNumberOfSubscriptions(void)
+uint8_t mqttdrv_GetNumberOfSubscriptions_td(void)
 {
     uint8_t counter_u8 = 0U;
-    mqttdrv_subsHdl_t index_xps = singleton_sst.subst_xp;
+    mqttdrv_subsHdl_t index_xps = this_sst.subst_xp;
 
     while(NULL != index_xps)
     {
@@ -398,7 +394,7 @@ uint8_t mqttdrv_GetNumberOfSubscriptions(void)
 /**---------------------------------------------------------------------------------------
  * @brief     Un-Subscribe MQTT message
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t mqttdrv_Publish_st(mqttif_msg_t *msg_stp, uint32_t timeOut_u32)
+esp_err_t mqttdrv_Publish_td(mqttif_msg_t *msg_stp, uint32_t timeOut_u32)
 {
     esp_err_t result_st = ESP_FAIL;
 
@@ -463,14 +459,14 @@ esp_err_t mqttdrv_Publish_st(mqttif_msg_t *msg_stp, uint32_t timeOut_u32)
 *//*------------------------------------------------------------------------------------*/
 static void AddSubsToList_vd(mqttdrv_subsHdl_t subsHdl_xp)
 {
-    if(NULL == singleton_sst.subst_xp)
+    if(NULL == this_sst.subst_xp)
     {
-        singleton_sst.subst_xp = subsHdl_xp;
-        singleton_sst.subst_xp->next_xp = NULL;
+        this_sst.subst_xp = subsHdl_xp;
+        this_sst.subst_xp->next_xp = NULL;
     }
     else
     {
-        mqttdrv_subsHdl_t current_xp = singleton_sst.subst_xp;
+        mqttdrv_subsHdl_t current_xp = this_sst.subst_xp;
         while(NULL != current_xp->next_xp)
         {
             current_xp = current_xp->next_xp;
@@ -491,10 +487,10 @@ static void RemoveSubsFromList_vd(mqttdrv_subsHdl_t subsHdl_xp)
     mqttdrv_subsHdl_t last_xp = NULL;
     mqttdrv_subsHdl_t current_xp;
 
-    if((NULL != subsHdl_xp) && (NULL != singleton_sst.subst_xp))
+    if((NULL != subsHdl_xp) && (NULL != this_sst.subst_xp))
     {
-        last_xp = singleton_sst.subst_xp;
-        current_xp = singleton_sst.subst_xp->next_xp;
+        last_xp = this_sst.subst_xp;
+        current_xp = this_sst.subst_xp->next_xp;
 
         while(NULL != current_xp)
         {
@@ -597,19 +593,19 @@ static void HandleConnect_vd(esp_mqtt_event_handle_t event_stp)
 {
     esp_err_t result_st = ESP_FAIL;
 
-    if((STATE_DISCONNECTED == singleton_sst.state_en) ||
-       (STATE_CONNECT_IN_PROGRESS == singleton_sst.state_en))
+    if((STATE_DISCONNECTED == this_sst.state_en) ||
+       (STATE_CONNECT_IN_PROGRESS == this_sst.state_en))
     {
-        singleton_sst.state_en = STATE_CONNECTED;
+        this_sst.state_en = STATE_CONNECTED;
         ESP_LOGI(TAG, "mqtt connected...");
 
         // TODO message to control task that MQTT is online
 
-        mqttdrv_subsHdl_t index_xps = singleton_sst.subst_xp;
+        mqttdrv_subsHdl_t index_xps = this_sst.subst_xp;
         while(NULL != index_xps)
         {
             //subscribe users
-            result_st = esp_mqtt_client_subscribe(singleton_sst.client_xp,
+            result_st = esp_mqtt_client_subscribe(this_sst.client_xp,
                     (char *)&index_xps->param_st.topic_u8a[0],
                     index_xps->param_st.qos_u32);
             ESP_LOGI(TAG, "subscribed to topic: %s, result:%d",
@@ -641,16 +637,16 @@ static void HandleConnect_vd(esp_mqtt_event_handle_t event_stp)
 *//*------------------------------------------------------------------------------------*/
 static void HandleDisconnect_vd(esp_mqtt_event_handle_t event_stp)
 {
-    if((STATE_CONNECTED == singleton_sst.state_en) ||
-       (STATE_INITIALIZED == singleton_sst.state_en))
+    if((STATE_CONNECTED == this_sst.state_en) ||
+       (STATE_INITIALIZED == this_sst.state_en))
     {
-        singleton_sst.state_en = STATE_DISCONNECTED;
+        this_sst.state_en = STATE_DISCONNECTED;
         ESP_LOGI(TAG, "mqtt disconnected...");
 
         // TODO: message to control task that MQTT is offline
 
         // call all registered callback functions for disconnection event
-        mqttdrv_subsHdl_t index_xps = singleton_sst.subst_xp;
+        mqttdrv_subsHdl_t index_xps = this_sst.subst_xp;
 
         while(NULL != index_xps)
         {
@@ -661,7 +657,7 @@ static void HandleDisconnect_vd(esp_mqtt_event_handle_t event_stp)
             index_xps = index_xps->next_xp;
         }
     }
-    else if(STATE_NOT_INITIALIZED == singleton_sst.state_en)
+    else if(STATE_NOT_INITIALIZED == this_sst.state_en)
     {
         ESP_LOGW(TAG, "disconnection before initialization...");
     }
@@ -705,7 +701,7 @@ static void HandlePublish_vd(esp_mqtt_event_handle_t event_stp)
 *//*------------------------------------------------------------------------------------*/
 static void HandleData_vd(esp_mqtt_event_handle_t event_stp)
 {
-    mqttdrv_subsHdl_t index_xps = singleton_sst.subst_xp;
+    mqttdrv_subsHdl_t index_xps = this_sst.subst_xp;
     mqttif_msg_t msg_st;
 
     msg_st.topic_chp = event_stp->topic;
@@ -766,15 +762,15 @@ static esp_err_t Connect(void)
 {
     esp_err_t result_st = ESP_FAIL;
 
-    switch(singleton_sst.state_en)
+    switch(this_sst.state_en)
     {
         case STATE_INITIALIZED:
         case STATE_DISCONNECTED:
-            if(NULL != singleton_sst.client_xp)
+            if(NULL != this_sst.client_xp)
             {
-                result_st = esp_mqtt_client_start(singleton_sst.client_xp);
+                result_st = esp_mqtt_client_start(this_sst.client_xp);
                 ESP_LOGD(TAG, "client connection done...");
-                singleton_sst.state_en = STATE_CONNECT_IN_PROGRESS;
+                this_sst.state_en = STATE_CONNECT_IN_PROGRESS;
             }
             else
             {
@@ -805,11 +801,11 @@ static esp_err_t Disconnect(void)
 {
     esp_err_t result_st = ESP_FAIL;
 
-    if(   (STATE_NOT_INITIALIZED != singleton_sst.state_en)
-       && (STATE_INITIALIZED != singleton_sst.state_en))
+    if(   (STATE_NOT_INITIALIZED != this_sst.state_en)
+       && (STATE_INITIALIZED != this_sst.state_en))
     {
-        singleton_sst.state_en = STATE_DISCONNECTED;
-        result_st = esp_mqtt_client_stop(singleton_sst.client_xp);
+        this_sst.state_en = STATE_DISCONNECTED;
+        result_st = esp_mqtt_client_stop(this_sst.client_xp);
 
     }
     else
@@ -849,7 +845,7 @@ static void Task_vd(void *pvParameters)
         if(0 != (uxBits_st & PUBLISH_REQ))
         {
             ESP_LOGD(TAG, "publish start...");
-            pubMsg_sts.msgId_s32 = esp_mqtt_client_publish(singleton_sst.client_xp,
+            pubMsg_sts.msgId_s32 = esp_mqtt_client_publish(this_sst.client_xp,
                                                             pubMsg_sts.topic_chp,
                                                             pubMsg_sts.data_chp,
                                                             pubMsg_sts.dataLen_u32,

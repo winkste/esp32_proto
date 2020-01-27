@@ -13,7 +13,8 @@
 			"myconsole.h": "c",
 			"utils.h": "c",
 			"appident.h": "c",
-			"semphr.h": "c"
+			"semphr.h": "c",
+			"controltask.h": "c"
 		}
 	}
 }

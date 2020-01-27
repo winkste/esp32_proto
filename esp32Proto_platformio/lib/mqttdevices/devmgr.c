@@ -262,13 +262,13 @@ static esp_err_t GenerateDefaultDevice_st(void)
     result_st = gendev_InitializeParameter_st(&iniparam_st);
     iniparam_st.deviceName_chp = obj_sts.devName_chp;
     iniparam_st.id_chp = obj_sts.id_chp;
-    iniparam_st.publishHandler_fp = mqttdrv_Publish_st;
+    iniparam_st.publishHandler_fp = mqttdrv_Publish_td;
     result_st = gendev_Initialize_st(&iniparam_st);
 
     ESP_LOGD(TAG, "start subscribing gendev topics");
 
     // subscribe to all topics of this device
-    result_st = mqttdrv_InitSubscriptParam(&subsParam_st);
+    result_st = mqttdrv_InitSubscriptParam_td(&subsParam_st);
 
     bool hasMoreSubscriptions_bol;
     hasMoreSubscriptions_bol = gendev_GetSubscriptionByIndex_bol(idx_u16, &subsParam_st);

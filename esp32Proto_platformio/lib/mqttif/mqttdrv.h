@@ -79,7 +79,7 @@ typedef struct mqttdrv_subsObj_tag* mqttdrv_subsHdl_t;
  * @param     param_stp         pointer to the configuration structure
  * @return    n/a
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t mqttdrv_InitializeParameter(mqttdrv_param_t *param_stp);
+extern esp_err_t mqttdrv_InitializeParameter_td(mqttdrv_param_t *param_stp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Initialization of the mqtt module
@@ -88,7 +88,7 @@ extern esp_err_t mqttdrv_InitializeParameter(mqttdrv_param_t *param_stp);
  * @param     param_stp         pointer to the configuration structure
  * @return    n/a
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t mqttdrv_Initialize(mqttdrv_param_t *param_stp);
+extern esp_err_t mqttdrv_Initialize_td(mqttdrv_param_t *param_stp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Starts the MQTT demon if it was initialized
@@ -96,7 +96,7 @@ extern esp_err_t mqttdrv_Initialize(mqttdrv_param_t *param_stp);
  * @date      25. Mar. 2019
  * @return    n/a
 *//*-----------------------------------------------------------------------------------*/
-extern void mqttdrv_StartMqttDemon(void);
+extern void mqttdrv_StartMqttDemon_vd(void);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Initialize subscription parameter
@@ -105,7 +105,7 @@ extern void mqttdrv_StartMqttDemon(void);
  * @param     subsParam_stp         user structure for mqtt subs/pubs
  * @return    n/a
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t mqttdrv_InitSubscriptParam(mqttif_substParam_t *subsParam_stp);
+extern esp_err_t mqttdrv_InitSubscriptParam_td(mqttif_substParam_t *subsParam_stp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Allocate subscribe handle
@@ -123,7 +123,7 @@ extern mqttdrv_subsHdl_t mqttdrv_AllocSubs_xp(mqttif_substParam_t *subsParam_stp
  * @param     subsHdl_xp         opaque pointer to the subsription handle
  * @return    in case of success an opaque pointer to the handle, else NULL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t mqttdrv_DeAllocSub_st(mqttdrv_subsHdl_t subsHdl_xp);
+extern esp_err_t mqttdrv_DeAllocSub_td(mqttdrv_subsHdl_t subsHdl_xp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Subscribe to a MQTT message
@@ -132,7 +132,7 @@ extern esp_err_t mqttdrv_DeAllocSub_st(mqttdrv_subsHdl_t subsHdl_xp);
  * @param     subsHdl_xp         opaque pointer to the subsription handle
  * @return    ESP_OK if success, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t mqttdrv_Subscribe_xp(mqttdrv_subsHdl_t subsHdl_xp);
+extern esp_err_t mqttdrv_Subscribe_td(mqttdrv_subsHdl_t subsHdl_xp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Un-Subscribe MQTT message
@@ -141,7 +141,7 @@ extern esp_err_t mqttdrv_Subscribe_xp(mqttdrv_subsHdl_t subsHdl_xp);
  * @param     subsHdl_xp         subscription handle
  * @return    ESP_OK if the message was successful un-subscribed
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t mqttdrv_UnSubscribe(mqttdrv_subsHdl_t subsHdl_xp);
+extern esp_err_t mqttdrv_UnSubscribe_td(mqttdrv_subsHdl_t subsHdl_xp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Get the number of all allocated subscriptions in the list
@@ -149,7 +149,7 @@ extern esp_err_t mqttdrv_UnSubscribe(mqttdrv_subsHdl_t subsHdl_xp);
  * @date      20. May. 2019
  * @return    number of subscriptions
 *//*-----------------------------------------------------------------------------------*/
-extern uint8_t mqttdrv_GetNumberOfSubscriptions(void);
+extern uint8_t mqttdrv_GetNumberOfSubscriptions_td(void);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Un-Subscribe MQTT message
@@ -159,7 +159,7 @@ extern uint8_t mqttdrv_GetNumberOfSubscriptions(void);
  * param      msg_st             message to be published
  * @return    ESP_OK if the message was successful un-subscribed
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t mqttdrv_Publish_st(mqttif_msg_t *msg_stp, uint32_t timeOut_u32);
+extern esp_err_t mqttdrv_Publish_td(mqttif_msg_t *msg_stp, uint32_t timeOut_u32);
 
 /****************************************************************************************/
 /* Global data definitions: */

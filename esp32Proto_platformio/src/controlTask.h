@@ -54,18 +54,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * @date      24. Jan. 2019
  * @return    esp error code (ESP_OK, ESP_...)
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t    controlTask_Initialize_st(void);
-
-/**---------------------------------------------------------------------------------------
- * @brief     task routine for the control handling
- * @author    S. Wink
- * @date      24. Jan. 2019
- * @param     pvParameters      interface variable from freertos
-*//*-----------------------------------------------------------------------------------*/
-extern void         controlTask_Task_vd(void *pvParameters);
-
-//extern void         controlTask_InitializeWifiStaCb(void *data_vp);
-//extern void         controlTask_InitializeWifiApCb(void *data_vp);
+extern esp_err_t    controlTask_StartSystem_td(void);
 
 /****************************************************************************************/
 /* Global data definitions: */

@@ -95,8 +95,9 @@ typedef struct objectData_tag
 {
     objectState_t state_en;
     uint8_t connectRetries_u8;
-    TimerHandle_t timer_st;
-    EventGroupHandle_t wifiEventGroup_st;
+    TimerHandle_t timer_xp;
+    EventGroupHandle_t wifiEventGroup_xp;
+    TaskHandle_t task_xp;
     wifiIf_service_t service_st;
     wifiIf_Converter_fcp Converter_fcp;
     wifiCtrl_serviceHdl_t service_xp;
@@ -112,29 +113,32 @@ typedef enum wifiMode_tag
 
 /***************************************************************************************/
 /* Local functions prototypes: */
+
 static void AddServiceToList_vd(wifiCtrl_serviceHdl_t hdl_xp);
 //static void RemoveSubsFromList_vd(wifiCtrl_serviceHdl_t hdl_xp);
 static esp_err_t Reconnect_st(void);
 static void Task_vd(void *pvParameters);
 static int32_t CmdHandlerChangeParameter_s32(int32_t argc_s32, char** argv);
 static int32_t CmdHandlerChangeMode_s32(int32_t argc_s32, char** argv);
-static esp_err_t EventHandler_st(void *ctx_vp, system_event_t *event_stp);
+static esp_err_t EventHandler_td(void *ctx_vp, system_event_t *event_stp);
 static void HandleConnectionTimeout_vd(TimerHandle_t xTimer);
-static esp_err_t SetAndCheckState_st(objectState_t state_en);
-static esp_err_t StartTimeout_st(void);
-
-
+static esp_err_t SetAndCheckState_td(objectState_t state_en);
+static esp_err_t StartTimeout_td(void);
+static esp_err_t CreateTimer_td(void);
+static esp_err_t CreateEventGroup_td(void);
+static esp_err_t CreateTask_td(void);
 
 /***************************************************************************************/
 /* Local variables: */
 static const char *TAG = MODULE_TAG;
 
-static objectData_t hdl_st =
+static objectData_t this_sst =
 {
     .state_en = STATE_NOT_INITIALIZED,
     .connectRetries_u8 = 0U,
-    .timer_st = NULL,
-    .wifiEventGroup_st = NULL,
+    .timer_xp = NULL,
+    .wifiEventGroup_xp = NULL,
+    .task_xp = NULL,
     .Converter_fcp = wifiAp_EventConverter_u32,
     .service_xp = NULL
 };
@@ -189,8 +193,8 @@ esp_err_t wifiCtrl_Initialize_st(wifiIf_service_t *service_stp)
     //esp_log_level_set("wifiAp", ESP_LOG_WARN);
     //esp_log_level_set("wifiCtrl", ESP_LOG_WARN);
 
-    memcpy(&hdl_st.service_st, service_stp, sizeof(hdl_st.service_st));
-    hdl_st.connectRetries_u8 = 0U;
+    memcpy(&this_sst.service_st, service_stp, sizeof(this_sst.service_st));
+    this_sst.connectRetries_u8 = 0U;
 
     exeResult_bol &= CHECK_EXE(paramif_InitializeAllocParameter_td(&modeAllocParam_st));
     modeAllocParam_st.length_u16 = sizeof(mode_ens);
@@ -214,30 +218,39 @@ esp_err_t wifiCtrl_Initialize_st(wifiIf_service_t *service_stp)
             stationParam_sts.ssid,
             stationParam_sts.password);
 
-    hdl_st.timer_st = xTimerCreate("WIFI_Timeout", pdMS_TO_TICKS(5000), false,
+    /*this_sst.timer_xp = xTimerCreate("WIFI_Timeout", pdMS_TO_TICKS(5000), false,
                                                 (void *) 0, HandleConnectionTimeout_vd);
-
-    if(NULL == hdl_st.timer_st)
+    if(NULL == this_sst.timer_xp)
     {
         exeResult_bol = false;
         ESP_LOGE(TAG, "wifi initialization failed to alloc task");
     }
-
-    hdl_st.wifiEventGroup_st = xEventGroupCreate();
-    if(NULL == hdl_st.wifiEventGroup_st)
+    
+    this_sst.wifiEventGroup_xp = xEventGroupCreate();
+    if(NULL == this_sst.wifiEventGroup_xp)
     {
         exeResult_bol = false;
         ESP_LOGE(TAG, "wifi initialization failed to alloc event");
     }
+    
+    (void)xTaskCreate(Task_vd, "wifiTask", 4096, NULL, 4, &this_sst.task_xp);
 
-    xTaskCreate(Task_vd, "wifiTask", 4096, NULL, 4, NULL);
+    if(NULL == this_sst.task_xp)
+    {
+        exeResult_bol = false;
+        ESP_LOGE(TAG, "wifi initialization failed to alloc task");    
+    }*/
 
-    exeResult_bol &= CHECK_EXE(esp_event_loop_init(EventHandler_st, NULL));
+    exeResult_bol &= CHECK_EXE(CreateTimer_td());
+    exeResult_bol &= CHECK_EXE(CreateEventGroup_td());
+    exeResult_bol &= CHECK_EXE(CreateTask_td());
+
+    exeResult_bol &= CHECK_EXE(esp_event_loop_init(EventHandler_td, NULL));
 
     if(true == exeResult_bol)
     {
         result_st = ESP_OK;
-        SetAndCheckState_st(STATE_INITIALIZED);
+        SetAndCheckState_td(STATE_INITIALIZED);
     }
 
     return(result_st);
@@ -251,9 +264,9 @@ esp_err_t wifiCtrl_Start_st(void)
     esp_err_t result_st = ESP_FAIL;
     bool exeResult_bol = true;
 
-    if(STATE_NOT_INITIALIZED != hdl_st.state_en)
+    if(STATE_NOT_INITIALIZED != this_sst.state_en)
     {
-        hdl_st.connectRetries_u8 = 0U;
+        this_sst.connectRetries_u8 = 0U;
         exeResult_bol &= CHECK_EXE(Reconnect_st());
     }
     else
@@ -381,14 +394,14 @@ wifiCtrl_serviceHdl_t wifiIf_RegisterService_xp(wifiIf_service_t *service_stp)
 *//*------------------------------------------------------------------------------------*/
 static void AddServiceToList_vd(wifiCtrl_serviceHdl_t hdl_xp)
 {
-    if(NULL == hdl_st.service_xp)
+    if(NULL == this_sst.service_xp)
     {
-        hdl_st.service_xp = hdl_xp;
-        hdl_st.service_xp->next_xp = NULL;
+        this_sst.service_xp = hdl_xp;
+        this_sst.service_xp->next_xp = NULL;
     }
     else
     {
-        wifiCtrl_serviceHdl_t current_xp = hdl_st.service_xp;
+        wifiCtrl_serviceHdl_t current_xp = this_sst.service_xp;
         while(NULL != current_xp->next_xp)
         {
             current_xp = current_xp->next_xp;
@@ -409,10 +422,10 @@ static void AddServiceToList_vd(wifiCtrl_serviceHdl_t hdl_xp)
     mqttdrv_subsHdl_t last_xp = NULL;
     mqttdrv_subsHdl_t current_xp;
 
-    if((NULL != hdl_xp) && (NULL != hdl_st.service_xp))
+    if((NULL != hdl_xp) && (NULL != this_sst.service_xp))
     {
-        last_xp = hdl_st.service_xp;
-        current_xp = hdl_st.service_xp->next_xp;
+        last_xp = this_sst.service_xp;
+        current_xp = this_sst.service_xp->next_xp;
 
         while(NULL != current_xp)
         {
@@ -441,33 +454,33 @@ static esp_err_t Reconnect_st(void)
 
     if(MODE_STATION == mode_ens)
     {
-        hdl_st.connectRetries_u8++;
-        if(MAXIMUM_CONN_RETRIES <= hdl_st.connectRetries_u8)
+        this_sst.connectRetries_u8++;
+        if(MAXIMUM_CONN_RETRIES <= this_sst.connectRetries_u8)
         {
-            hdl_st.Converter_fcp = wifiAp_EventConverter_u32;
+            this_sst.Converter_fcp = wifiAp_EventConverter_u32;
             exeResult_bol &= CHECK_EXE(wifiStation_Stop_st());
-            SetAndCheckState_st(STATE_WIFI_STOPPED);
+            SetAndCheckState_td(STATE_WIFI_STOPPED);
             // switch to access point mode using the timer and a recall of this function
-            hdl_st.connectRetries_u8 = 0U;
+            this_sst.connectRetries_u8 = 0U;
             mode_ens = MODE_ACCESSPOINT;
-            exeResult_bol &= CHECK_EXE(StartTimeout_st());
+            exeResult_bol &= CHECK_EXE(StartTimeout_td());
         }
         else
         {
-            hdl_st.Converter_fcp = wifiStation_EventConverter_u32;
+            this_sst.Converter_fcp = wifiStation_EventConverter_u32;
             exeResult_bol &= CHECK_EXE(wifiStation_Start_st(&stationParam_sts));
-            exeResult_bol &= CHECK_EXE(StartTimeout_st());
+            exeResult_bol &= CHECK_EXE(StartTimeout_td());
         }
     }
     else if(MODE_ACCESSPOINT == mode_ens)
     {
-        hdl_st.Converter_fcp = wifiAp_EventConverter_u32;
+        this_sst.Converter_fcp = wifiAp_EventConverter_u32;
         exeResult_bol &= CHECK_EXE(wifiAp_Start_st());
     }
     else
     {
         ESP_LOGE(TAG, "unexpected wifi mode during start detected: %d", mode_ens);
-        hdl_st.Converter_fcp = wifiAp_EventConverter_u32;
+        this_sst.Converter_fcp = wifiAp_EventConverter_u32;
         exeResult_bol &= CHECK_EXE(wifiAp_Start_st());
         mode_ens = DEFAULT_MODE;
     }
@@ -496,46 +509,46 @@ static void Task_vd(void *pvParameters)
     ESP_LOGD(TAG, "wifiTask started...");
     while(1)
     {
-        uxBits_st = xEventGroupWaitBits(hdl_st.wifiEventGroup_st, bits_u32,
+        uxBits_st = xEventGroupWaitBits(this_sst.wifiEventGroup_xp, bits_u32,
                                          true, false, portMAX_DELAY); // @suppress("Symbol is not resolved")
 
         if(0 != (uxBits_st & wifiIf_EVENT_CLIENT_CONNECTED))
         {
-            if(NULL != hdl_st.service_st.OnClientConnection_fcp)
+            if(NULL != this_sst.service_st.OnClientConnection_fcp)
             {
-                hdl_st.service_st.OnClientConnection_fcp();
+                this_sst.service_st.OnClientConnection_fcp();
                 ESP_LOGI(TAG, "executed wifi ap connect callback function...");
-                SetAndCheckState_st(STATE_CLIENT_CONNECTED);
+                SetAndCheckState_td(STATE_CLIENT_CONNECTED);
             }
         }
         if(0 != (uxBits_st & wifiIf_EVENT_CLIENT_DISCONNECTED))
         {
-            SetAndCheckState_st(STATE_WAITING_FOR_CLIENT);
+            SetAndCheckState_td(STATE_WAITING_FOR_CLIENT);
         }
 
         if(0 != (uxBits_st & wifiIf_EVENT_STATION_CONNECTED))
         {
-            if(NULL != hdl_st.service_st.OnStationConncetion_fcp)
+            if(NULL != this_sst.service_st.OnStationConncetion_fcp)
             {
-                hdl_st.service_st.OnStationConncetion_fcp();
+                this_sst.service_st.OnStationConncetion_fcp();
                 ESP_LOGI(TAG, "executed wifi station connect callback function...");
-                xTimerStop(hdl_st.timer_st, 0);
-                SetAndCheckState_st(STATE_CONNECTED);
+                xTimerStop(this_sst.timer_xp, 0);
+                SetAndCheckState_td(STATE_CONNECTED);
             }
         }
         if(0 != (uxBits_st & wifiIf_EVENT_STATION_DISCONNECTED))
         {
-            if(NULL != hdl_st.service_st.OnDisconncetion_fcp)
+            if(NULL != this_sst.service_st.OnDisconncetion_fcp)
             {
-                hdl_st.service_st.OnDisconncetion_fcp();
+                this_sst.service_st.OnDisconncetion_fcp();
                 ESP_LOGI(TAG, "executed wifi station disconnect callback function...");
-                SetAndCheckState_st(STATE_DISCONNECTED);
+                SetAndCheckState_td(STATE_DISCONNECTED);
             }
             CHECK_EXE(Reconnect_st());
         }
         if(0 != (uxBits_st & wifiIf_EVENT_CONN_TIMEOUT))
         {
-            xTimerStop(hdl_st.timer_st, 0);
+            xTimerStop(this_sst.timer_xp, 0);
             CHECK_EXE(Reconnect_st());
         }
     }
@@ -602,16 +615,16 @@ static int32_t CmdHandlerChangeMode_s32(int32_t argc_s32, char** argv)
  * @param     event_stp     the received event
  * @return    a esp_err_t based error code, currently only ESP_OK
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t EventHandler_st(void *ctx_vp, system_event_t *event_stp)
+static esp_err_t EventHandler_td(void *ctx_vp, system_event_t *event_stp)
 {
     esp_err_t result_st = ESP_OK;
     uint32_t event_u32 = 0;
 
-    event_u32 = hdl_st.Converter_fcp(event_stp);
+    event_u32 = this_sst.Converter_fcp(event_stp);
 
     if(wifiIf_EVENT_DONT_CARE != event_u32)
     {
-        xEventGroupSetBits(hdl_st.wifiEventGroup_st, event_u32);
+        xEventGroupSetBits(this_sst.wifiEventGroup_xp, event_u32);
     }
 
     return(result_st);
@@ -626,7 +639,7 @@ static esp_err_t EventHandler_st(void *ctx_vp, system_event_t *event_stp)
 static void HandleConnectionTimeout_vd(TimerHandle_t xTimer)
 {
     ESP_LOGD(TAG, "timer callback...");
-    xEventGroupSetBits(hdl_st.wifiEventGroup_st, wifiIf_EVENT_CONN_TIMEOUT);
+    xEventGroupSetBits(this_sst.wifiEventGroup_xp, wifiIf_EVENT_CONN_TIMEOUT);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -635,11 +648,11 @@ static void HandleConnectionTimeout_vd(TimerHandle_t xTimer)
  * @date      24. Jan. 2019
  * @param     xTimer      handle to timer
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t SetAndCheckState_st(objectState_t state_en)
+static esp_err_t SetAndCheckState_td(objectState_t state_en)
 {
     esp_err_t result_st = ESP_OK;
     ESP_LOGD(TAG, "state change: %d", state_en);
-    hdl_st.state_en = state_en;
+    this_sst.state_en = state_en;
     return(result_st);
 }
 
@@ -649,15 +662,70 @@ static esp_err_t SetAndCheckState_st(objectState_t state_en)
  * @date      24. Jan. 2019
  * @return    ESP_OK, ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t StartTimeout_st(void)
+static esp_err_t StartTimeout_td(void)
 {
     esp_err_t exeResult_st = ESP_FAIL;
 
-    if(NULL != hdl_st.timer_st)
+    if(NULL != this_sst.timer_xp)
     {
-        xTimerStart(hdl_st.timer_st, 0);
+        xTimerStart(this_sst.timer_xp, 0);
         exeResult_st = ESP_OK;
     }
 
     return(exeResult_st);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     creates the timer object
+ * @author    S. Wink
+ * @date      26. Jan. 2020
+ * @return    ESP_OK if creation was successful, else ESP_FAIL
+*//*-----------------------------------------------------------------------------------*/
+static esp_err_t CreateTimer_td(void)
+{
+    esp_err_t exeResult_td = ESP_FAIL;
+
+    this_sst.timer_xp = xTimerCreate("WIFI_Timeout", pdMS_TO_TICKS(5000), false,
+                                                (void *) 0, HandleConnectionTimeout_vd);
+    if(NULL != this_sst.timer_xp)
+    {
+        exeResult_td = ESP_OK;
+    }   
+    return(exeResult_td); 
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     creates the event group object
+ * @author    S. Wink
+ * @date      26. Jan. 2020
+ * @return    ESP_OK if creation was successful, else ESP_FAIL
+*//*-----------------------------------------------------------------------------------*/
+static esp_err_t CreateEventGroup_td(void)
+{
+    esp_err_t exeResult_td = ESP_FAIL;
+
+    this_sst.wifiEventGroup_xp = xEventGroupCreate();
+    if(NULL != this_sst.wifiEventGroup_xp)
+    {
+        exeResult_td = ESP_OK;
+    }   
+    return(exeResult_td); 
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     creates the task object
+ * @author    S. Wink
+ * @date      26. Jan. 2020
+ * @return    ESP_OK if creation was successful, else ESP_FAIL
+*//*-----------------------------------------------------------------------------------*/
+static esp_err_t CreateTask_td(void)
+{
+    esp_err_t exeResult_td = ESP_FAIL;
+
+    (void)xTaskCreate(Task_vd, "wifiTask", 4096, NULL, 4, &this_sst.task_xp);
+    if(NULL != this_sst.task_xp)
+    {
+        exeResult_td = ESP_OK;
+    }   
+    return(exeResult_td); 
 }
