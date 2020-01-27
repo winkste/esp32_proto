@@ -100,8 +100,9 @@ typedef enum {
 
 /****************************************************************************************/
 /* Local functions prototypes: */
-static const cmdItem_t *FindCommandByName_stp(const char *name_cpc);
 static int HelpCommand_i(int argc, char **argv);
+static int HelpCommand2_i(int argc, char **argv);
+static const cmdItem_t *FindCommandByName_stp(const char *name_cpc);
 
 /****************************************************************************************/
 /* Local variables: */
@@ -256,7 +257,7 @@ esp_err_t myConsole_RegisterHelpCommand()
     myConsole_cmd_t command_st = {
         .command = "help",
         .help = "Print the list of registered commands",
-        .func = &HelpCommand_i
+        .func = &HelpCommand2_i
     };
     return myConsole_CmdRegister_td(&command_st);
 }
@@ -359,7 +360,7 @@ size_t myConsole_SplitArgv(char *line_cp, char **argv_cpp, size_t argvSize_st)
 static int HelpCommand_i(int argc, char **argv)
 {
     cmdItem_t *it_stp;
-
+    
     /* Print summary of each command */
     SLIST_FOREACH(it_stp, &cmdList_sts, next)
     {
@@ -385,6 +386,55 @@ static int HelpCommand_i(int argc, char **argv)
         }
         printf("\n");
     }
+    return 0U;
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief   Help command function, prints all commands registered to console
+ * @author  S. Wink
+ * @date    31. Jan. 2019
+ * @param[in]   argc  number of arguments
+ * @param[in]   argv list of arguments
+ * @return      0U
+*//*------------------------------------------------------------------------------------*/
+static int HelpCommand2_i(int argc, char **argv)
+{
+    cmdItem_t *it_stp;
+
+    char *buf = NULL;
+    size_t buf_size = 0;
+
+    FILE *f = open_memstream(&buf, &buf_size);
+    
+    /* Print summary of each command */
+    SLIST_FOREACH(it_stp, &cmdList_sts, next)
+    {
+        if (it_stp->help == NULL)
+        {
+            continue;
+        }
+        /* First line: command name and hint
+         * Pad all the hints to the same column
+         */
+        const char *hint = (it_stp->hint) ? it_stp->hint : "";
+        fprintf(f, "%-s %s\n", it_stp->command, hint);
+        /* Second line: print help.
+         * Argtable has a nice helper function for this which does line
+         * wrapping.
+         */
+        fprintf(f, "  "); // arg_print_formatted does not indent the first line
+        arg_print_formatted(f, 2, 78, it_stp->help);
+        /* Finally, print the list of arguments */
+        if (it_stp->argtable)
+        {
+            arg_print_glossary(f, (void **) it_stp->argtable, "  %12s  %s\n");
+        }
+        fprintf(f, "\n");
+    }
+
+    printf("%s", buf);
+    free(f);
+
     return 0U;
 }
 
