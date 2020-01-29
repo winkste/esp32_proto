@@ -1,22 +1,13 @@
 /*****************************************************************************************
-* FILENAME :        gendev.h
+* FILENAME :        mijaDevice.h
 *
 * SHORT DESCRIPTION:
-*   This is the header file for the generic mqtt device module
+*   Header file for mijaDevice module.
 *
 * DETAILED DESCRIPTION :
-* General usage of the module is :
-*       1. generate a parameter instance
-*       2. run gendev_InitializeParameter_st() to default set the parameters
-*       3. set application specific parameters in the parameter instance
-*       4. run gendev_Initialize_st()
-*       5. get the subscription objects from gendev_GetSubscriptionByIndex_bol() by 
-*               looping thru the function with an increased index until the function
-*               returns a null pointer
-*       6. activate the module by running gendev_Activate_st()
 *       
 *
-* AUTHOR :    Stephan Wink        CREATED ON :    24. Jan. 2019
+* AUTHOR :    Stephan Wink        CREATED ON :    13. Jan. 2019
 *
 * Copyright (c) [2020] [Stephan Wink]
 *
@@ -38,16 +29,23 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef GENDEV_H_
-#define GENDEV_H_
+#ifndef MIJADEVICE_H
+#define MIJADEVICE_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 /****************************************************************************************/
 /* Imported header files: */
-#include "mqttif.h"
+
 #include "stdint.h"
+#include "stdbool.h"
+#include "stddef.h"
+#include "string.h"
+#include "esp_log.h"
 #include "esp_err.h"
 
-#include "stdbool.h"
 /****************************************************************************************/
 /* Global constant defines: */
 
@@ -57,55 +55,53 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
-typedef struct gendev_param_tag
+typedef struct mijaDevice_param_tag
 {
-    mqttif_Publish_td publishHandler_fp;
-    char *deviceName_chp;
-    char *id_chp;
-}gendev_param_t;
+
+}mijaDevice_param_t;
 
 /****************************************************************************************/
 /* Global function definitions: */
 
 /**--------------------------------------------------------------------------------------
- * @brief     Initializes the initialization structure of the generic device module
- * @param     param_stp         pointer to the configuration structure
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-extern esp_err_t gendev_InitializeParameter_st(gendev_param_t *param_stp);
-
-/**--------------------------------------------------------------------------------------
- * @brief     Initialization of the generic device module
- * @param     param_stp         pointer to the configuration structure
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-extern esp_err_t gendev_Initialize_st(gendev_param_t *param_stp);
-
-/**--------------------------------------------------------------------------------------
- * @brief     Get subscriptions from the generic device by index
- * @param     idx_u16    index of topic, can be used as iterator
- * @param     dest_stp   pointer to the subscription parameter structure
- * @return    returns false if the index was out of bounce and no subscription was
- *              copied
-*//*-----------------------------------------------------------------------------------*/
-extern bool gendev_GetSubscriptionByIndex_bol(uint16_t idx_u16,
-                                                mqttif_substParam_t *dest_stp);
-
-/**--------------------------------------------------------------------------------------
- * @brief     Activate the generic device function
- * @return    returns ESP_OK if success, else ESP_FAIL
-*//*-----------------------------------------------------------------------------------*/
-extern esp_err_t gendev_Activate_st(void);
-
-/**--------------------------------------------------------------------------------------
- * @brief     Deactivates the generic device function
+ * @brief     pre-configure the initialization parameter of the module
  * @author    S. Wink
- * @date      25. Mar. 2019
- * @return    returns ESP_OK if success, else ESP_FAIL
+ * @date      13. Jan. 2020
+ * @param     param_stp             allocated pointer to the initialization parameters
+ * @return    ESP_OK in case of success, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t gendev_Deactivate_st(void);
+extern esp_err_t mijaDevice_InitializeParameter(mijaDevice_param_t *param_stp);
+
+/**--------------------------------------------------------------------------------------
+ * @brief     initialization of the mijaDevice module
+ * @author    S. Wink
+ * @date      13. Jan. 2020
+ * @param     param_stp             allocated pointer to the initialization parameters
+ * @return    ESP_OK in case of success, else ESP_FAIL
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t mijaDevice_Initialize_st(mijaDevice_param_t *param_stp);
+
+/**--------------------------------------------------------------------------------------
+ * @brief     activation of the mijaDevice module
+ * @author    S. Wink
+ * @date      13. Jan. 2020
+ * @return    ESP_OK in case of success, else ESP_FAIL
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t mijaDevice_Activate_st(void);
+
+/**--------------------------------------------------------------------------------------
+ * @brief     activation of the mijaDevice module
+ * @author    S. Wink
+ * @date      13. Jan. 2020
+ * @return    ESP_OK in case of success, else ESP_FAIL
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t mijaDevice_Deactivate_st(void);
 
 /****************************************************************************************/
 /* Global data definitions: */
 
-#endif /* GENDEV_H_ */
+#ifdef __cplusplus
+}
+#endif
+
+#endif //MIJADEVICE_H
