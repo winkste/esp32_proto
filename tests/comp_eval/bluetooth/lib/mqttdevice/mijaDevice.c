@@ -46,10 +46,18 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "freertos/timers.h"
+#include "freertos/queue.h"
+
+#include "mijaProcl.h"
+#include "bleDrv.h"
 
 /***************************************************************************************/
 /* Local constant defines */
 #define TASK_STACK_SIZE     4096
+#define QUEUE_ELEMENTS      10
+
+#define TIMER_EVENT         BIT0
+#define BLE_DATA_EVENT      BIT1
 
 /***************************************************************************************/
 /* Local function like makros */
@@ -67,22 +75,25 @@ typedef enum objectState_tag
 
 typedef struct objectData_tag
 {
-     objectState_t state_en;
-     TaskHandle_t task_xp;
-     EventGroupHandle_t eventGroup_st;
-     TimerHandle_t timer_xp;
+    objectState_t state_en;
+    TaskHandle_t task_xp;
+    EventGroupHandle_t eventGroup_st;
+    TimerHandle_t timer_xp;
+    QueueHandle_t queue_xp;
 }objectData_t;
 /***************************************************************************************/
 /* Local functions prototypes: */
 static void Task_vd(void * pvParameters);
 static void TimerCallback_vd(TimerHandle_t xTimer);
+static void DriverCallback_vd(mijaProcl_parsedData_t *data_stp);
+static void HandleQueueEvent_vd(void);
 
 /***************************************************************************************/
 /* Local variables: */
 
-static objectData_t singleton_sst =
+static objectData_t this_sst =
 {
-        .state_en = STATE_NOT_INITIALIZED,
+    .state_en = STATE_NOT_INITIALIZED,
 };
 
 /***************************************************************************************/
@@ -95,7 +106,7 @@ esp_err_t mijaDevice_InitializeParameter(mijaDevice_param_t *param_stp)
 {
     esp_err_t exeResult_st = ESP_FAIL;
 
-    singleton_sst.state_en = STATE_NOT_INITIALIZED;
+    this_sst.state_en = STATE_NOT_INITIALIZED;
 
     return(exeResult_st);
 }
@@ -106,28 +117,35 @@ esp_err_t mijaDevice_InitializeParameter(mijaDevice_param_t *param_stp)
 esp_err_t mijaDevice_Initialize_st(mijaDevice_param_t *param_stp)
 {
     esp_err_t exeResult_st = ESP_FAIL;
+    bleDrv_param_t params_st;
 
-	/*singleton_sst.eventGroup_st = xEventGroupCreate();
+	this_sst.eventGroup_st = xEventGroupCreate();
 
+    this_sst.queue_xp = xQueueCreate(QUEUE_ELEMENTS, sizeof(mijaProcl_parsedData_t));
 
     (void)xTaskCreate(Task_vd, "MIJATASK", TASK_STACK_SIZE, ( void * ) 1, 
-                        tskIDLE_PRIORITY, &singleton_sst.task_xp ); 
+                        tskIDLE_PRIORITY, &this_sst.task_xp ); 
 
-	singleton_sst.timer_xp = xTimerCreate("Timer", pdMS_TO_TICKS(5000), true,
+	this_sst.timer_xp = xTimerCreate("Timer", pdMS_TO_TICKS(5000), true,
                                                 (void *) 0, TimerCallback_vd);
 
-    if(    (NULL != singleton_sst.eventGroup_st) 
-        && (NULL != singleton_sst.timer_xp) 
-        && (NULL != singleton_sst.timer_xp))
+	bleDrv_InitializeParameter(&params_st);
+	params_st.cycleTimeInSec_u32 = 20U;
+	params_st.scanDurationInSec_u32 = 20U;
+	params_st.dataCb_fp = DriverCallback_vd;
+
+	bleDrv_Initialize_st(&params_st);
+
+    if(    (NULL != this_sst.eventGroup_st) 
+        && (NULL != this_sst.timer_xp) 
+        && (NULL != this_sst.task_xp)
+        && (NULL != this_sst.queue_xp))
     {
-        singleton_sst.state_en = STATE_INITIALIZED;
+        this_sst.state_en = STATE_INITIALIZED;
         exeResult_st = ESP_OK;
     }
 
-    */
-
     return(exeResult_st);
-
 }
 
 /**--------------------------------------------------------------------------------------
@@ -137,10 +155,15 @@ esp_err_t mijaDevice_Activate_st(void)
 {
     esp_err_t exeResult_st = ESP_FAIL;
 
-    singleton_sst.state_en = STATE_ACTIVATED;
+    if(    (STATE_INITIALIZED == this_sst.state_en) 
+        || (STATE_DEACTIVATED == this_sst.state_en))
+    {
+        this_sst.state_en = STATE_ACTIVATED;
+        bleDrv_Activate_st();
+        exeResult_st = ESP_OK;
+    }
 
     return(exeResult_st);
-
 }
 
 /**--------------------------------------------------------------------------------------
@@ -150,7 +173,13 @@ esp_err_t mijaDevice_Deactivate_st(void)
 {
     esp_err_t exeResult_st = ESP_FAIL;
 
-    singleton_sst.state_en = STATE_DEACTIVATED;
+    if(    (STATE_INITIALIZED == this_sst.state_en) 
+        || (STATE_ACTIVATED == this_sst.state_en))
+    {
+        this_sst.state_en = STATE_DEACTIVATED;
+        bleDrv_Deactivate_st();
+        exeResult_st = ESP_OK;
+    }
 
     return(exeResult_st);
 
@@ -168,7 +197,67 @@ esp_err_t mijaDevice_Deactivate_st(void)
 *//*-----------------------------------------------------------------------------------*/
 static void TimerCallback_vd(TimerHandle_t xTimer_xp)
 {
-    //xEventGroupSetBits(singleton_sst.eventGroup_st, 8);
+    xEventGroupSetBits(this_sst.eventGroup_st, TIMER_EVENT);
+}
+
+/**--------------------------------------------------------------------------------------
+ * @brief     Timer callback to re-trigger the scan process
+ * @author    S. Wink
+ * @date      17. Jan. 2020
+ * @param     xTimer_xp     handle of the timer
+ * @return    n/a
+*//*-----------------------------------------------------------------------------------*/
+static void DriverCallback_vd(mijaProcl_parsedData_t *data_stp)
+{
+	if((NULL != data_stp) && (NULL != this_sst.queue_xp))
+    {
+        if(pdPASS == xQueueSendToBack(this_sst.queue_xp, (void *) data_stp,
+                                            (TickType_t) 10))
+        {
+            // notify task that new data is available in the queue
+            if(NULL != this_sst.eventGroup_st)
+            {
+                xEventGroupSetBits(this_sst.eventGroup_st, BLE_DATA_EVENT);
+            }
+        }
+    }
+}
+
+/**--------------------------------------------------------------------------------------
+ * @brief     Handle the queue receive event and print data
+ * @author    S. Wink
+ * @date      17. Jan. 2020
+ * @param     xTimer_xp     handle of the timer
+ * @return    n/a
+*//*-----------------------------------------------------------------------------------*/
+static void HandleQueueEvent_vd(void)
+{
+    mijaProcl_parsedData_t data_st;
+
+    if(NULL != this_sst.queue_xp)
+    {
+        // Receive a message on the created queue.  Block for 10 ticks if a
+        // message is not immediately available.
+        while(pdTRUE == xQueueReceive(this_sst.queue_xp, &data_st, (TickType_t) 10))
+        {
+            printf("\n ******* SENSOR DATA RESULT **************");
+            printf("\n Sensor MAC Address: %02X:", data_st.macAddr_u8a[0]);
+            printf("%02X:", data_st.macAddr_u8a[1]);
+            printf("%02X:", data_st.macAddr_u8a[2]);
+            printf("%02X:", data_st.macAddr_u8a[3]);
+            printf("%02X:", data_st.macAddr_u8a[4]);
+            printf("%02X", data_st.macAddr_u8a[5]);
+            printf("\n Message UUID %d", data_st.uuid_u16);
+            printf("\n Message counter: %d", data_st.msgCnt_u8);
+            printf("\n Parser result: %d", data_st.parseResult_u8);
+            printf("\n Sensor Data Type: %d", data_st.dataType_en);
+            printf("\n Sensor Data Battery %f (%%)", data_st.battery_f32);
+            printf("\n Sensor Data Temperature: %f (°C)", data_st.temperature_f32);
+            printf("\n Sensor Data Humidity: %f (%%)", data_st.humidity_f32);
+            printf("\n Parser result: %d", data_st.parseResult_u8);
+            printf("\n *****************************************");
+        }
+    }
 }
 
 /**--------------------------------------------------------------------------------------
@@ -180,39 +269,23 @@ static void TimerCallback_vd(TimerHandle_t xTimer_xp)
 *//*-----------------------------------------------------------------------------------*/
 static void Task_vd(void * pvParameters_vdp)
 {
-	/*EventBits_t uxBits_st;
-    uint32_t bits_u32 = 1 | 2 | 4 | 8;
+    EventBits_t uxBits_st;
+    uint32_t bits_u32 = TIMER_EVENT | BLE_DATA_EVENT;
 
-	printf("-------------------------- task started...");
 
     for( ;; )
     {
-		uxBits_st = xEventGroupWaitBits(singleton_sst.eventGroup_st, bits_u32,
+		uxBits_st = xEventGroupWaitBits(this_sst.eventGroup_st, bits_u32,
 									true, false, portMAX_DELAY); // @suppress("Symbol is not resolved")
 
-        if(0 != (uxBits_st & 1))
+		if(0 != (uxBits_st & BLE_DATA_EVENT))
         {
-			printf("\n---------------------- scan completed received...");
-			xTimerStart(singleton_sst.timer_xp, 0);
-			
+			HandleQueueEvent_vd();
         }
-
-		if(0 != (uxBits_st & 2))
+		if(0 != (uxBits_st & TIMER_EVENT))
         {
-			printf("\n---------------------- scan started received...");
+			// TODO
+			//xTimerStop(this_sst.timer_xp, 0);
         }
-
-		if(0 != (uxBits_st & 4))
-        {
-			printf("\n---------------------- sensor parse request received...");
-        }
-		if(0 != (uxBits_st & 8))
-        {
-			printf("\n---------------------- timer received...");
-			xTimerStop(singleton_sst.timer_xp, 0);
-			//esp_ble_gap_start_scanning(10);
-        }
-    }*/
+    }
 }
-
-

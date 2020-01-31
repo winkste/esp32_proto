@@ -97,6 +97,8 @@ extern esp_err_t bleDrv_StartScan_st(void);
 
 extern esp_err_t bleDrv_Activate_st(void);
 
+extern esp_err_t bleDrv_Deactivate_st(void);
+
 /****************************************************************************************/
 /* Global data definitions: */
 
