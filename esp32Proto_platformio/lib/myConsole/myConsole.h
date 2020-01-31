@@ -65,6 +65,7 @@ typedef struct {
  * @return console command return code, 0 indicates "success"
  */
 typedef int (*myConsole_cmdFunc_t)(int argc, char** argv);
+typedef int (*myConsole_cmdFunc2_t)(int argc, char** argv, FILE *retStream_xp, uint16_t *length_u16p);
 
 /**
  * @brief Console command description
@@ -91,6 +92,10 @@ typedef struct {
      * Pointer to a function which implements the command.
      */
     myConsole_cmdFunc_t func;
+    /**
+     * Pointer to an extended function which implements the command.
+     */
+    myConsole_cmdFunc2_t func2;
     /**
      * Array or structure of pointers to arg_xxx structures, may be NULL.
      * Used to generate hint text if 'hint' is set to NULL.
@@ -125,7 +130,17 @@ extern esp_err_t myConsole_Init_td(const myConsole_config_t *config_st);
  *          - ESP_OK on success
  *          - ESP_ERR_INVALID_STATE if not initialized yet
 *//*------------------------------------------------------------------------------------*/
-esp_err_t myConsole_DeInit_td();
+extern esp_err_t myConsole_DeInit_td();
+
+/**---------------------------------------------------------------------------------------
+ * @brief   Initializes the console command to defaults
+* @author  S. Wink
+ * @date    28. Jan. 2020
+ * @return
+ *          - ESP_OK on success
+ *          - ESP_FAIL if pointer is NULL
+*//*------------------------------------------------------------------------------------*/
+extern esp_err_t myConsole_CmdInit_td(const myConsole_cmd_t *cmd_stp);
 
 /**---------------------------------------------------------------------------------------
  * @brief   Register console command
@@ -152,6 +167,23 @@ extern esp_err_t myConsole_CmdRegister_td(const myConsole_cmd_t *cmd_stp);
  *      - ESP_ERR_INVALID_STATE, if esp_console_init wasn't called
 *//*------------------------------------------------------------------------------------*/
 extern esp_err_t myConsole_Run_td(const char* cmdline_cpc, int* cmdReturn_ip);
+
+/**---------------------------------------------------------------------------------------
+ * @brief   Run command line
+ * @author  S. Wink
+ * @date    31. Jan. 2019
+ * @param cmdline command line (command name followed by a number of arguments)
+ * @param[out] cmd_ret return code from the command (set if command was run)
+ * @param[out]  retStream_xp    stream for return data
+ * @param[out]  length_u16p     bytes send to out stream
+ * @return
+ *      - ESP_OK, if command was run
+ *      - ESP_ERR_INVALID_ARG, if the command line is empty, or only contained
+ *        whitespace
+ *      - ESP_ERR_NOT_FOUND, if command with given name wasn't registered
+ *      - ESP_ERR_INVALID_STATE, if esp_console_init wasn't called
+*//*------------------------------------------------------------------------------------*/
+esp_err_t myConsole_Run2_td(const char *cmdline_cpc, int *cmdRet_ip, FILE *retStream_xp, uint16_t *length_u16p);
 
 /**---------------------------------------------------------------------------------------
  * @brief Split command line into arguments in place
