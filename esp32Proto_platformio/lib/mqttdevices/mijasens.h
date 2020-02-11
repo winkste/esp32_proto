@@ -1,17 +1,22 @@
 /*****************************************************************************************
-* FILENAME :        devmgr.h
+* FILENAME :        mijaSens.h
 *
 * SHORT DESCRIPTION:
-*   Header file for devmgr module.
+*   This is the header file for the generic mqtt device module
 *
 * DETAILED DESCRIPTION :
-* 
-* 1. Generate an instance of the parameter struture
-* 2. Default set the instance of the parameter by calling devmgr_InitializeParameter()
-* 3. Initialize the module by calling devmgr_Initialize() 
-* 4. Start the device generation with calling devmgr_GenerateDevices()
+* General usage of the module is :
+*       1. generate a parameter instance
+*       2. run mijasens_InitializeParameter_st() to default set the parameters
+*       3. set application specific parameters in the parameter instance
+*       4. run mijasens_Initialize_st()
+*       5. get the subscription objects from mijasens_GetSubscriptionByIndex_bol() by 
+*               looping thru the function with an increased index until the function
+*               returns a null pointer
+*       6. activate the module by running mijasens_Activate_st()
+*       
 *
-* AUTHOR :    Stephan Wink        CREATED ON :    24. Jan. 2020
+* AUTHOR :    Stephan Wink        CREATED ON :    01. Feb. 2019
 *
 * Copyright (c) [2020] [Stephan Wink]
 *
@@ -33,17 +38,16 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef DEVMGR_H_
-#define DEVMGR_H_
+#ifndef MIJASENS_H_
+#define MIJASENS_H_
 
 /****************************************************************************************/
 /* Imported header files: */
-
+#include "mqttif.h"
 #include "stdint.h"
 #include "esp_err.h"
 
 #include "stdbool.h"
-
 /****************************************************************************************/
 /* Global constant defines: */
 
@@ -53,41 +57,53 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
-typedef struct devmgr_param_tag
+typedef struct mijasens_param_tag
 {
-}devmgr_param_t;
+    mqttif_Publish_td publishHandler_fp;
+    char *deviceName_chp;
+    char *id_chp;
+}mijasens_param_t;
 
 /****************************************************************************************/
 /* Global function definitions: */
 
 /**--------------------------------------------------------------------------------------
- * @brief     Initializes the initialization structure of the device manager module
- * @author    S. Wink
- * @date      24. Apr. 2019
+ * @brief     Initializes the initialization structure of the generic device module
  * @param     param_stp         pointer to the configuration structure
  * @return    n/a
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_InitializeParameter_td(devmgr_param_t *param_stp);
+extern esp_err_t mijasens_InitializeParameter_st(mijasens_param_t *param_stp);
 
 /**--------------------------------------------------------------------------------------
- * @brief     Initialization of the device manager module
- * @author    S. Wink
- * @date      24. Apr. 2019
+ * @brief     Initialization of the generic device module
  * @param     param_stp         pointer to the configuration structure
  * @return    n/a
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_Initialize_td(devmgr_param_t *param_stp);
+extern esp_err_t mijasens_Initialize_st(mijasens_param_t *param_stp);
 
 /**--------------------------------------------------------------------------------------
- * @brief     Starts the devices which are setup per parameter
- * @author    S. Wink
- * @date      24. Apr. 2019
- * @return    ESP_OK if successful, else ESP_FAIL
+ * @brief     Get subscriptions from the generic device by index
+ * @param     idx_u16    index of topic, can be used as iterator
+ * @param     dest_stp   pointer to the subscription parameter structure
+ * @return    returns false if the index was out of bounce and no subscription was
+ *              copied
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_GenerateDevices_td(void);
+extern bool mijasens_GetSubscriptionByIndex_bol(uint16_t idx_u16,
+                                                mqttif_substParam_t *dest_stp);
+
+/**--------------------------------------------------------------------------------------
+ * @brief     Activate the generic device function
+ * @return    returns ESP_OK if success, else ESP_FAIL
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t mijasens_Activate_st(void);
+
+/**--------------------------------------------------------------------------------------
+ * @brief     Deactivates the generic device function
+ * @return    returns ESP_OK if success, else ESP_FAIL
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t mijasens_Deactivate_st(void);
 
 /****************************************************************************************/
 /* Global data definitions: */
 
-#endif
-
+#endif /* MIJASENS_H_ */

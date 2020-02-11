@@ -329,6 +329,12 @@ esp_err_t mqttdrv_Subscribe_td(mqttdrv_subsHdl_t subsHdl_xp)
         {
             ESP_LOGD(TAG, "subscribed to topic: %s",
                                 (char *)&subsHdl_xp->param_st.topic_u8a[0]);
+            // inform new subscription that we are online
+            if(STATE_CONNECTED == this_sst.state_en)
+            {
+                subsHdl_xp->param_st.conn_fp();
+            }
+            
             subsHdl_xp->subscribed_bol = true;
         }
     }

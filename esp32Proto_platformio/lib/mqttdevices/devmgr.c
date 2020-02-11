@@ -1,14 +1,15 @@
 /*****************************************************************************************
 * FILENAME :        devmgr.c
 *
-* DESCRIPTION :
-*       This module
+* SHORT DESCRIPTION:
+*   Implementation file for devmgr module.
 *
-* AUTHOR :    Stephan Wink        CREATED ON :    24.01.2019
+* DETAILED DESCRIPTION :
+*       
 *
-* PUBLIC FUNCTIONS :
+* AUTHOR :    Stephan Wink        CREATED ON :    24. Jan. 2020
 *
-* Copyright (c) [2017] [Stephan Wink]
+* Copyright (c) [2020] [Stephan Wink]
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +28,6 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
-*
 *****************************************************************************************/
 
 /****************************************************************************************/
@@ -49,6 +49,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "myConsole.h"
 
 #include "gendev.h"
+#include "mijasens.h"
 
 /****************************************************************************************/
 /* Local constant defines */
@@ -74,6 +75,7 @@ typedef enum capType_tag
 {
     CAPABILITY_DEFAULT   = 0,
     CAPABILITY_DHT22,
+    CAPABILITY_MIJA_SENS,
     CAPABILITY_UNDEFINED = 0xFF
 }capType_t;
 
@@ -110,11 +112,13 @@ static struct
 /****************************************************************************************/
 /* Local functions prototypes: */
 static esp_err_t GenerateDefaultDevice_st(void);
+static esp_err_t GenerateMijaDevice_st(void);
 static int32_t CmdHandlerChangeParameter_s32(int32_t argc_s32, char** argv);
+static void RegisterDeviceCommands_vd(void);
 
 /****************************************************************************************/
 /* Local variables: */
-static objectData_t obj_sts =
+static objectData_t this_sst =
 {
     .cap_en = CAPABILITY_DEFAULT,
     .state_st = STATE_NOT_INITIALIZED,
@@ -136,72 +140,73 @@ static const char *TAG = MODULE_TAG;
 /****************************************************************************************/
 /* Global functions (unlimited visibility) */
 
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     Initializes the initialization structure of the device manager module
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_InitializeParameter(devmgr_param_t *param_stp)
+extern esp_err_t devmgr_InitializeParameter_td(devmgr_param_t *param_stp)
 {
     esp_err_t result_st = ESP_OK;
 
     return(result_st);
 }
 
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     Initialization of the device manager module
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_Initialize(devmgr_param_t *param_stp)
+extern esp_err_t devmgr_Initialize_td(devmgr_param_t *param_stp)
 {
     esp_err_t result_st = ESP_FAIL;
     bool exeResult_bol = true;
     paramif_allocParam_t deviceAllocParam_st;
 
-    exeResult_bol &= CHECK_EXE(paramif_InitializeAllocParameter_td(&deviceAllocParam_st));
-    deviceAllocParam_st.length_u16 = sizeof(obj_sts.para_st);
+    exeResult_bol &= CHECK_EXE(paramif_InitializeAllocParameter_td(
+                                                &deviceAllocParam_st));
+    deviceAllocParam_st.length_u16 = sizeof(this_sst.para_st);
     deviceAllocParam_st.defaults_u8p = (uint8_t *)&DEFAULT_PARA;
     deviceAllocParam_st.nvsIdent_cp = MODE_PARA_IDENT;
     deviceParaHdl_xps = paramif_Allocate_stp(&deviceAllocParam_st);
     paramif_PrintHandle_vd(deviceParaHdl_xps);
-    exeResult_bol &= CHECK_EXE(paramif_Read_td(deviceParaHdl_xps, (uint8_t *) &obj_sts.para_st));
+    exeResult_bol &= CHECK_EXE(paramif_Read_td(deviceParaHdl_xps, 
+                                                (uint8_t *) &this_sst.para_st));
     ESP_LOGI(TAG, "loaded device parameter from flash... ");
-    ESP_LOGI(TAG, "device capability: %d", obj_sts.para_st.cap_en);
-    ESP_LOGI(TAG, "device id: %d", obj_sts.para_st.devId_en);
-    ESP_LOGI(TAG, "device location %s", obj_sts.para_st.devLoc_cha);
+    ESP_LOGI(TAG, "device capability: %d", this_sst.para_st.cap_en);
+    ESP_LOGI(TAG, "device id: %d", this_sst.para_st.devId_en);
+    ESP_LOGI(TAG, "device location %s", this_sst.para_st.devLoc_cha);
 
-    devmgr_RegisterDeviceCommands();
+    RegisterDeviceCommands_vd();
     
     if(true == exeResult_bol)
     {
-        obj_sts.state_st = STATE_INITIALIZED;
+        this_sst.state_st = STATE_INITIALIZED;
         result_st = ESP_OK;
     }
 
     return(result_st);
 }
 
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     Starts the devices which are setup per parameter
 *//*-----------------------------------------------------------------------------------*/
-extern void devmgr_GenerateDevices(void)
+extern esp_err_t devmgr_GenerateDevices_td(void)
 {
+    bool exeResult_bol = true;
     esp_err_t result_st = ESP_OK;
 
-
-    if(STATE_INITIALIZED == obj_sts.state_st)
+    if(STATE_INITIALIZED == this_sst.state_st)
     {
-        obj_sts.state_st = STATE_DEVICES_ACTIVE;
+        this_sst.state_st = STATE_DEVICES_ACTIVE;
 
-        switch(obj_sts.cap_en)
+        switch(this_sst.cap_en)
         {
             case CAPABILITY_DEFAULT:
-                if(ESP_OK == GenerateDefaultDevice_st())
-                {
-                    if(ESP_OK == gendev_Activate_st())
-                    {
-                        ESP_LOGI(TAG, "generic device generated and activated...");
-                    }
-                }
+                exeResult_bol &= CHECK_EXE(GenerateDefaultDevice_st());
+                exeResult_bol &= CHECK_EXE(gendev_Activate_st());
+                exeResult_bol &= CHECK_EXE(GenerateMijaDevice_st());
+                exeResult_bol &= CHECK_EXE(mijasens_Activate_st());
                 break;
             case CAPABILITY_DHT22:
+                break;
+            case CAPABILITY_MIJA_SENS:
                 break;
             default:
                 break;
@@ -209,81 +214,105 @@ extern void devmgr_GenerateDevices(void)
     }
     else
     {
-
+        exeResult_bol = false;
     }
 
-    if(ESP_FAIL == result_st)
+    if(false == exeResult_bol)
     {
-        ESP_LOGW(TAG, "unexpected error during device generation");
+        result_st = ESP_FAIL;
     }
-}
 
-/**--------------------------------------------------------------------------------------
- * @brief     Function to register device command line command
-*//*-----------------------------------------------------------------------------------*/
-void devmgr_RegisterDeviceCommands(void)
-{
-    cmdArgsDevice_sts.cap_stp = arg_int0("c", "capa", "<c>",
-                                                "Capability id");
-    cmdArgsDevice_sts.cap_stp->ival[0] = 0; // set default value
-    cmdArgsDevice_sts.id_stp = arg_int0("d", "dev", "<d>",
-                                                "Device id");
-    cmdArgsDevice_sts.id_stp->ival[0] = 98; // set default value
-    cmdArgsDevice_sts.location_stp = arg_str1(NULL, NULL, "<loc>", "location of device");
-    cmdArgsDevice_sts.end_stp = arg_end(2);
-
-    const myConsole_cmd_t paramCmd = {
-        .command = "dev",
-        .help = "Device setup",
-        .hint = NULL,
-        .func = &CmdHandlerChangeParameter_s32,
-        .argtable = &cmdArgsDevice_sts
-    };
-    CHECK_EXE(myConsole_CmdRegister_td(&paramCmd));
+    return(result_st);
 }
 
 /****************************************************************************************/
 /* Local functions: */
-/**---------------------------------------------------------------------------------------
+/**--------------------------------------------------------------------------------------
  * @brief     generate default capability mqtt devices
  * @author    S. Wink
  * @date      24. Jun. 2019
  * @return    true if empty, else false
-*//*------------------------------------------------------------------------------------*/
+*//*-----------------------------------------------------------------------------------*/
 static esp_err_t GenerateDefaultDevice_st(void)
 {
+    bool exeResult_bol = true;
     esp_err_t result_st = ESP_OK;
-    gendev_param_t iniparam_st;
+    gendev_param_t param_st;
     //const char *topic_cchp;
-    uint16_t idx_u16 = 0;
+    uint16_t idx_u16 = 0U;
     mqttif_substParam_t subsParam_st;
+    bool hasMoreSubscriptions_bol;
 
     // initialize the device first
-    result_st = gendev_InitializeParameter_st(&iniparam_st);
-    iniparam_st.deviceName_chp = obj_sts.devName_chp;
-    iniparam_st.id_chp = obj_sts.id_chp;
-    iniparam_st.publishHandler_fp = mqttdrv_Publish_td;
-    result_st = gendev_Initialize_st(&iniparam_st);
+    exeResult_bol &= CHECK_EXE(gendev_InitializeParameter_st(&param_st));
+    param_st.deviceName_chp = this_sst.devName_chp;
+    param_st.id_chp = this_sst.id_chp;
+    param_st.publishHandler_fp = mqttdrv_Publish_td;
+    exeResult_bol &= CHECK_EXE(gendev_Initialize_st(&param_st));
 
     ESP_LOGD(TAG, "start subscribing gendev topics");
 
     // subscribe to all topics of this device
-    result_st = mqttdrv_InitSubscriptParam_td(&subsParam_st);
+    exeResult_bol &= CHECK_EXE(mqttdrv_InitSubscriptParam_td(&subsParam_st));
 
-    bool hasMoreSubscriptions_bol;
     hasMoreSubscriptions_bol = gendev_GetSubscriptionByIndex_bol(idx_u16, &subsParam_st);
     ESP_LOGD(TAG, "topic from gendev: %s", subsParam_st.topic_u8a);
     while(hasMoreSubscriptions_bol && (ESP_FAIL != result_st))
     {
-        if(NULL == mqttdrv_AllocSubs_xp(&subsParam_st))
-        {
-            result_st = ESP_FAIL;
-        }
+        exeResult_bol &= (NULL != mqttdrv_AllocSubs_xp(&subsParam_st));
         idx_u16++;
         hasMoreSubscriptions_bol = gendev_GetSubscriptionByIndex_bol(idx_u16,
                                                                         &subsParam_st);
     }
 
+    if(false == exeResult_bol)
+    {
+        result_st = ESP_FAIL;
+    }
+    return(result_st);
+}
+
+/**--------------------------------------------------------------------------------------
+ * @brief     generate mija capability mqtt devices
+ * @author    S. Wink
+ * @date      24. Jun. 2019
+ * @return    true if empty, else false
+*//*-----------------------------------------------------------------------------------*/
+static esp_err_t GenerateMijaDevice_st(void)
+{
+    bool exeResult_bol = true;
+    esp_err_t result_st = ESP_OK;
+    mijasens_param_t param_st;
+    uint16_t idx_u16 = 0U;
+    mqttif_substParam_t subsParam_st;
+    bool hasMoreSubscriptions_bol;
+
+    // initialize the device first
+    exeResult_bol &= CHECK_EXE(mijasens_InitializeParameter_st(&param_st));
+    param_st.deviceName_chp = this_sst.devName_chp;
+    param_st.id_chp = this_sst.id_chp;
+    param_st.publishHandler_fp = mqttdrv_Publish_td;
+    exeResult_bol &= CHECK_EXE(mijasens_Initialize_st(&param_st));
+
+    ESP_LOGD(TAG, "start subscribing gendev topics");
+
+    // subscribe to all topics of this device
+    exeResult_bol &= CHECK_EXE(mqttdrv_InitSubscriptParam_td(&subsParam_st));
+
+    hasMoreSubscriptions_bol = mijasens_GetSubscriptionByIndex_bol(idx_u16, &subsParam_st);
+    ESP_LOGD(TAG, "topic from mijasens: %s", subsParam_st.topic_u8a);
+    while(hasMoreSubscriptions_bol && (ESP_FAIL != result_st))
+    {
+        exeResult_bol &= (NULL != mqttdrv_AllocSubs_xp(&subsParam_st));
+        idx_u16++;
+        hasMoreSubscriptions_bol = mijasens_GetSubscriptionByIndex_bol(idx_u16,
+                                                                        &subsParam_st);
+    }
+
+    if(false == exeResult_bol)
+    {
+        result_st = ESP_FAIL;
+    }
     return(result_st);
 }
 
@@ -295,22 +324,50 @@ static esp_err_t GenerateDefaultDevice_st(void)
  * @param     argv      pointer to argument list
  * @return    not equal to zero if error detected
 *//*-----------------------------------------------------------------------------------*/
-static int32_t CmdHandlerChangeParameter_s32(int32_t argc_s32, char** argv)
+static int32_t CmdHandlerChangeParameter_s32(int32_t argc_s32, char** argv_cpp)
 {
-    int32_t nerrors_s32 = arg_parse(argc_s32, argv, (void**) &cmdArgsDevice_sts);
+    int32_t nerrors_s32 = arg_parse(argc_s32, argv_cpp, (void**) &cmdArgsDevice_sts);
 
-    if (nerrors_s32 != 0) {
-        arg_print_errors(stderr, cmdArgsDevice_sts.end_stp, argv[0]);
+    if(0 != nerrors_s32) 
+    {
+        arg_print_errors(stderr, cmdArgsDevice_sts.end_stp, argv_cpp[0]);
         return 1;
     }
 
-    obj_sts.para_st.cap_en = *cmdArgsDevice_sts.cap_stp->ival;
-    obj_sts.para_st.devId_en = *cmdArgsDevice_sts.id_stp->ival;
-    memset(obj_sts.para_st.devLoc_cha, 0, sizeof(obj_sts.para_st.devLoc_cha));
-    memcpy(obj_sts.para_st.devLoc_cha, cmdArgsDevice_sts.location_stp->sval,
-            sizeof(obj_sts.para_st.devLoc_cha));
+    this_sst.para_st.cap_en = *cmdArgsDevice_sts.cap_stp->ival;
+    this_sst.para_st.devId_en = *cmdArgsDevice_sts.id_stp->ival;
+    memset(this_sst.para_st.devLoc_cha, 0, sizeof(this_sst.para_st.devLoc_cha));
+    memcpy(this_sst.para_st.devLoc_cha, cmdArgsDevice_sts.location_stp->sval,
+            sizeof(this_sst.para_st.devLoc_cha));
 
-    CHECK_EXE(paramif_Write_td(deviceParaHdl_xps, (uint8_t *) &obj_sts.para_st));
+    CHECK_EXE(paramif_Write_td(deviceParaHdl_xps, (uint8_t *) &this_sst.para_st));
 
     return(0);
+}
+
+/**-------------------------------------------------------------------------------------
+ * @brief     Function to register device command line command
+ * @author    S. Wink
+ * @date      24. Jan. 2019
+*//*-----------------------------------------------------------------------------------*/
+static void RegisterDeviceCommands_vd(void)
+{
+    cmdArgsDevice_sts.cap_stp = arg_int0("c", "capa", "<c>",
+                                                "Capability id");
+    cmdArgsDevice_sts.cap_stp->ival[0] = 0; // set default value
+    cmdArgsDevice_sts.id_stp = arg_int0("d", "dev", "<d>",
+                                                "Device id");
+    cmdArgsDevice_sts.id_stp->ival[0] = 98; // set default value
+    cmdArgsDevice_sts.location_stp = arg_str1(NULL, NULL, "<loc>", "location of device");
+    cmdArgsDevice_sts.end_stp = arg_end(2);
+
+    const myConsole_cmd_t paramCmd = 
+    {
+        .command = "dev",
+        .help = "Device setup",
+        .hint = NULL,
+        .func = &CmdHandlerChangeParameter_s32,
+        .argtable = &cmdArgsDevice_sts
+    };
+    CHECK_EXE(myConsole_CmdRegister_td(&paramCmd));
 }

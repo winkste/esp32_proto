@@ -60,7 +60,6 @@
 #define MQTT_PUB_CAP              "gen/cap"  // send capability
 #define MQTT_PUB_TRACE            "gen/trac" // send trace channel
 #define MQTT_SUB_COMMAND          "gen/cmd" // command message for generic read commands
-#define MQTT_CLIENT               MQTT_DEFAULT_DEVICE // just a name used to talk to MQTT broker
 #define MQTT_PAYLOAD_CMD_INFO     "INFO"
 #define MQTT_SUBSCRIPTIONS_NUM    2U
 #define MAX_PUB_WAIT              10000

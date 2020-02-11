@@ -1,17 +1,13 @@
 /*****************************************************************************************
-* FILENAME :        devmgr.h
+* FILENAME :        bleDrv.h
 *
 * SHORT DESCRIPTION:
-*   Header file for devmgr module.
+*   Header file for basic module.
 *
 * DETAILED DESCRIPTION :
-* 
-* 1. Generate an instance of the parameter struture
-* 2. Default set the instance of the parameter by calling devmgr_InitializeParameter()
-* 3. Initialize the module by calling devmgr_Initialize() 
-* 4. Start the device generation with calling devmgr_GenerateDevices()
+*       
 *
-* AUTHOR :    Stephan Wink        CREATED ON :    24. Jan. 2020
+* AUTHOR :    Stephan Wink        CREATED ON :    13. Jan. 2019
 *
 * Copyright (c) [2020] [Stephan Wink]
 *
@@ -33,16 +29,24 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef DEVMGR_H_
-#define DEVMGR_H_
+#ifndef BLEDRV_H
+#define BLEDRV_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 /****************************************************************************************/
 /* Imported header files: */
 
 #include "stdint.h"
+#include "stdbool.h"
+#include "stddef.h"
+#include "string.h"
+#include "esp_log.h"
 #include "esp_err.h"
 
-#include "stdbool.h"
+#include "mijaProcl.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
@@ -53,41 +57,53 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
-typedef struct devmgr_param_tag
+typedef void (* bleDrv_DataAvailable_td)(mijaProcl_parsedData_t *data_st);
+
+typedef struct bleDrv_param_tag
 {
-}devmgr_param_t;
+    uint32_t scanDurationInSec_u32;
+    uint32_t cycleTimeInSec_u32;
+    bleDrv_DataAvailable_td dataCb_fp;
+}bleDrv_param_t;
 
 /****************************************************************************************/
 /* Global function definitions: */
 
 /**--------------------------------------------------------------------------------------
- * @brief     Initializes the initialization structure of the device manager module
+ * @brief     pre-configure the initialization parameter of the module
  * @author    S. Wink
- * @date      24. Apr. 2019
- * @param     param_stp         pointer to the configuration structure
- * @return    n/a
+ * @date      13. Jan. 2020
+ * @param     param_stp             allocated pointer to the initialization parameters
+ * @return    ESP_OK in case of success, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_InitializeParameter_td(devmgr_param_t *param_stp);
+extern esp_err_t bleDrv_InitializeParameter_st(bleDrv_param_t *param_stp);
 
 /**--------------------------------------------------------------------------------------
- * @brief     Initialization of the device manager module
+ * @brief     initialization of the bleDrv module
  * @author    S. Wink
- * @date      24. Apr. 2019
- * @param     param_stp         pointer to the configuration structure
- * @return    n/a
+ * @date      13. Jan. 2020
+ * @param     param_stp             allocated pointer to the initialization parameters
+ * @return    ESP_OK in case of success, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_Initialize_td(devmgr_param_t *param_stp);
+extern esp_err_t bleDrv_Initialize_st(bleDrv_param_t *param_stp);
 
 /**--------------------------------------------------------------------------------------
- * @brief     Starts the devices which are setup per parameter
+ * @brief     activation of the bleDrv module
  * @author    S. Wink
- * @date      24. Apr. 2019
- * @return    ESP_OK if successful, else ESP_FAIL
+ * @date      13. Jan. 2020
+ * @return    ESP_OK in case of success, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_GenerateDevices_td(void);
+extern esp_err_t bleDrv_StartScan_st(void);
+
+extern esp_err_t bleDrv_Activate_st(void);
+
+extern esp_err_t bleDrv_Deactivate_st(void);
 
 /****************************************************************************************/
 /* Global data definitions: */
 
+#ifdef __cplusplus
+}
 #endif
 
+#endif //BLEDRV_H

@@ -1,17 +1,13 @@
 /*****************************************************************************************
-* FILENAME :        devmgr.h
+* FILENAME :        mijaProcl.h
 *
 * SHORT DESCRIPTION:
-*   Header file for devmgr module.
+*   Header file for mijaProcl module.
 *
 * DETAILED DESCRIPTION :
-* 
-* 1. Generate an instance of the parameter struture
-* 2. Default set the instance of the parameter by calling devmgr_InitializeParameter()
-* 3. Initialize the module by calling devmgr_Initialize() 
-* 4. Start the device generation with calling devmgr_GenerateDevices()
+*       
 *
-* AUTHOR :    Stephan Wink        CREATED ON :    24. Jan. 2020
+* AUTHOR :    Stephan Wink        CREATED ON :    13. Jan. 2019
 *
 * Copyright (c) [2020] [Stephan Wink]
 *
@@ -33,61 +29,91 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef DEVMGR_H_
-#define DEVMGR_H_
+#ifndef MIJAPROCL_H
+#define MIJAPROCL_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 /****************************************************************************************/
 /* Imported header files: */
 
 #include "stdint.h"
-#include "esp_err.h"
-
 #include "stdbool.h"
+#include "stddef.h"
+#include "string.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
 
+#define mija_SIZE_MAC_ADDR      6U
 /****************************************************************************************/
 /* Global function like macro defines (to be avoided): */
 
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
-typedef struct devmgr_param_tag
+typedef enum mijaProcl_dataType_tag
 {
-}devmgr_param_t;
+    mija_TYPE_TEMPERATURE   = 0x04,
+    mija_TYPE_HUMIDITY      = 0x06,
+    mija_TYPE_BATTERY       = 0x0A,
+    mija_TYPE_TEMPHUM       = 0x0D,
+    mija_TYPE_UNKNOWN       = 0XFF
+}mijaProcl_dataType_t;
+
+typedef struct mijaProcl_parsedData_tag
+{
+    uint16_t uuid_u16;
+    uint8_t macAddr_u8a[mija_SIZE_MAC_ADDR];
+    uint8_t msgCnt_u8;
+    mijaProcl_dataType_t dataType_en;
+    float battery_f32;
+    float temperature_f32;
+    float humidity_f32;
+    uint8_t parseResult_u8;
+}mijaProcl_parsedData_t;
+
+typedef struct mijaProcl_param_tag
+{
+
+}mijaProcl_param_t;
 
 /****************************************************************************************/
 /* Global function definitions: */
 
 /**--------------------------------------------------------------------------------------
- * @brief     Initializes the initialization structure of the device manager module
- * @author    S. Wink
- * @date      24. Apr. 2019
- * @param     param_stp         pointer to the configuration structure
- * @return    n/a
+ * @brief     parses a message string and sets the ouput data structure
+ * @param     msg_u8p       pointer to input data with the message 
+ * @param     outData_stp   pointer to the ouput message data structure 
+ * @return    true in case of success, else false
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_InitializeParameter_td(devmgr_param_t *param_stp);
+extern bool mijaProcl_ParseMessage_bol(uint8_t *msg_u8p, 
+                                            mijaProcl_parsedData_t *outData_stp);
 
 /**--------------------------------------------------------------------------------------
- * @brief     Initialization of the device manager module
- * @author    S. Wink
- * @date      24. Apr. 2019
- * @param     param_stp         pointer to the configuration structure
- * @return    n/a
+ * @brief     print sensor data to serial console
+ * @param     msg_u8p       pointer to input data with the message 
+ * @param     outData_stp   pointer to the ouput message data structure 
+ * @return    true in case of success, else false
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_Initialize_td(devmgr_param_t *param_stp);
+extern bool mijaProcl_PrintMessage_bol(mijaProcl_parsedData_t *data_stp);
 
 /**--------------------------------------------------------------------------------------
- * @brief     Starts the devices which are setup per parameter
- * @author    S. Wink
- * @date      24. Apr. 2019
- * @return    ESP_OK if successful, else ESP_FAIL
+ * @brief     print sensor data to serial console
+ * @param     dest_stp   pointer to the destination structure 
+ * @param     src_stp   pointer to the source structure
+ * @return    true in case of success, else false
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t devmgr_GenerateDevices_td(void);
+extern bool mijaProcl_SetData_bol(mijaProcl_parsedData_t *dest_stp, 
+                                    mijaProcl_parsedData_t *src_stp);
 
 /****************************************************************************************/
 /* Global data definitions: */
 
+#ifdef __cplusplus
+}
 #endif
 
+#endif //MIJAPROCL_H
