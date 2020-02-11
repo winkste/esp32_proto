@@ -159,10 +159,9 @@ esp_err_t controlTask_StartSystem_td(void)
 
     /* initialize device manager */
     ESP_LOGI(TAG, "generate devices...");
-    CHECK_EXE(devmgr_InitializeParameter(&devMgrParam_st));
-    CHECK_EXE(devmgr_Initialize(&devMgrParam_st));
-    //devmgr_RegisterDeviceCommands();
-    devmgr_GenerateDevices();
+    CHECK_EXE(devmgr_InitializeParameter_td(&devMgrParam_st));
+    CHECK_EXE(devmgr_Initialize_td(&devMgrParam_st));
+    CHECK_EXE(devmgr_GenerateDevices_td());
 
     /* start the control task */
     xTaskCreate(Task_vd, "controlTask", 4096, NULL, 5, NULL);
