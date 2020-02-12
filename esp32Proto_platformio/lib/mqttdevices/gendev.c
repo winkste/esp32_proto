@@ -139,16 +139,15 @@ esp_err_t gendev_InitializeParameter_st(gendev_param_t *param_stp)
 
     this_sst.state_en = STATE_NOT_INITIALIZED;
     this_sst.param_st.deviceName_chp = "dev99";
-    this_sst.param_st.id_chp = "chan0";
     this_sst.param_st.publishHandler_fp = NULL;
+    this_sst.param_st.id_u8 = 0U;
     this_sst.healthCounter_u32 = 0L;
 
     if(NULL != param_stp)
     {
         param_stp->publishHandler_fp = NULL;
         param_stp->deviceName_chp = "dev99";
-        param_stp->id_chp = "chan0";
-
+        param_stp->id_u8 = 0U;
         result_st = ESP_OK;
     }
 
@@ -172,7 +171,7 @@ esp_err_t gendev_Initialize_st(gendev_param_t *param_stp)
     {
         /* copy parameters and initialize internal module data */
         this_sst.param_st.deviceName_chp = param_stp->deviceName_chp;
-        this_sst.param_st.id_chp = param_stp->id_chp;
+        this_sst.param_st.id_u8 = param_stp->id_u8;
         this_sst.param_st.publishHandler_fp = param_stp->publishHandler_fp;
         this_sst.pubMsg_st.dataLen_u32 = 0;
         this_sst.pubMsg_st.topicLen_u32 = 0;
@@ -185,7 +184,7 @@ esp_err_t gendev_Initialize_st(gendev_param_t *param_stp)
 
         /* create subscription topics */
         utils_BuildReceiveTopic_chp(this_sst.param_st.deviceName_chp,
-                                                this_sst.param_st.id_chp,
+                                                this_sst.param_st.id_u8,
                                                 subscriptions_cchsap[0],
                                                 &this_sst.subs_chap[0][0]);
         this_sst.subsCounter_u16++;
@@ -352,7 +351,7 @@ static void SendInfoRecord_vd(void)
 
 
     ESP_LOGD(TAG, "send firmware identifier...");
-    utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_chp,
+    utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_u8,
                                 MQTT_PUB_FW_IDENT, this_sst.pubMsg_st.topic_chp);
 
     this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
@@ -366,7 +365,7 @@ static void SendInfoRecord_vd(void)
     if(true == exeResult_bol)
     {
         utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp,
-                                    this_sst.param_st.id_chp, MQTT_PUB_FW_VERSION,
+                                    this_sst.param_st.id_u8, MQTT_PUB_FW_VERSION,
                                     this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.dataLen_u32 =
@@ -381,7 +380,7 @@ static void SendInfoRecord_vd(void)
     if(true == exeResult_bol)
     {
         utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp,
-                                    this_sst.param_st.id_chp, MQTT_PUB_FW_DESC,
+                                    this_sst.param_st.id_u8, MQTT_PUB_FW_DESC,
                                     this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.dataLen_u32 =
@@ -445,7 +444,7 @@ static esp_err_t OnDataReceivedHandler_st(mqttif_msg_t *msg_stp)
 *//*-----------------------------------------------------------------------------------*/
 static void SendHealthCounter_vd(void)
 {
-    utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_chp,
+    utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_u8,
                                 MQTT_PUB_HEALTH, this_sst.pubMsg_st.topic_chp);
     this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
     this_sst.pubMsg_st.dataLen_u32 = sprintf(this_sst.pubMsg_st.data_chp, 

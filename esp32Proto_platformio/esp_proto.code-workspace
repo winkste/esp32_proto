@@ -14,7 +14,8 @@
 			"utils.h": "c",
 			"appident.h": "c",
 			"semphr.h": "c",
-			"controltask.h": "c"
+			"controltask.h": "c",
+			"mqtt_client.h": "c"
 		}
 	}
 }

@@ -61,7 +61,7 @@ typedef struct gendev_param_tag
 {
     mqttif_Publish_td publishHandler_fp;
     char *deviceName_chp;
-    char *id_chp;
+    uint8_t id_u8;
 }gendev_param_t;
 
 /****************************************************************************************/

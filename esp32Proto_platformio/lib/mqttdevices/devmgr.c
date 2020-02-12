@@ -98,6 +98,7 @@ typedef struct objectData_tag
      objectState_t state_st;
      char *devName_chp;
      char *id_chp;
+     uint8_t id_u8;
      objectParam_t para_st;
 }objectData_t;
 
@@ -123,7 +124,8 @@ static objectData_t this_sst =
     .cap_en = CAPABILITY_DEFAULT,
     .state_st = STATE_NOT_INITIALIZED,
     .devName_chp = "dev98",
-    .id_chp = "chan1"
+    .id_chp = "chan1",
+    .id_u8 = 0U
 };
 
 static const objectParam_t DEFAULT_PARA = 
@@ -246,7 +248,7 @@ static esp_err_t GenerateDefaultDevice_st(void)
     // initialize the device first
     exeResult_bol &= CHECK_EXE(gendev_InitializeParameter_st(&param_st));
     param_st.deviceName_chp = this_sst.devName_chp;
-    param_st.id_chp = this_sst.id_chp;
+    param_st.id_u8 = this_sst.id_u8;
     param_st.publishHandler_fp = mqttdrv_Publish_td;
     exeResult_bol &= CHECK_EXE(gendev_Initialize_st(&param_st));
 
@@ -290,7 +292,7 @@ static esp_err_t GenerateMijaDevice_st(void)
     // initialize the device first
     exeResult_bol &= CHECK_EXE(mijasens_InitializeParameter_st(&param_st));
     param_st.deviceName_chp = this_sst.devName_chp;
-    param_st.id_chp = this_sst.id_chp;
+    param_st.id_u8 = this_sst.id_u8;
     param_st.publishHandler_fp = mqttdrv_Publish_td;
     exeResult_bol &= CHECK_EXE(mijasens_Initialize_st(&param_st));
 

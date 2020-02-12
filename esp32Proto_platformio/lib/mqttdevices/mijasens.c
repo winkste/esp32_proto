@@ -217,14 +217,14 @@ esp_err_t mijasens_InitializeParameter_st(mijasens_param_t *param_stp)
 
     this_sst.state_en = STATE_NOT_INITIALIZED;
     this_sst.param_st.deviceName_chp = "dev99";
-    this_sst.param_st.id_chp = "chan0";
+    this_sst.param_st.id_u8 = 1;
     this_sst.param_st.publishHandler_fp = NULL;
 
     if(NULL != param_stp)
     {
         param_stp->publishHandler_fp = NULL;
         param_stp->deviceName_chp = "dev99";
-        param_stp->id_chp = "chan0";
+        param_stp->id_u8 = 0U;
 
         result_st = ESP_OK;
     }
@@ -251,7 +251,7 @@ esp_err_t mijasens_Initialize_st(mijasens_param_t *param_stp)
     {
         /* copy parameters and initialize internal module data */
         this_sst.param_st.deviceName_chp = param_stp->deviceName_chp;
-        this_sst.param_st.id_chp = param_stp->id_chp;
+        this_sst.param_st.id_u8 = param_stp->id_u8;
         this_sst.param_st.publishHandler_fp = param_stp->publishHandler_fp;
         this_sst.pubMsg_st.dataLen_u32 = 0;
         this_sst.pubMsg_st.topicLen_u32 = 0;
@@ -318,7 +318,7 @@ extern bool mijasens_GetSubscriptionByIndex_bol(uint16_t idx_u16,
 
         memset(&dest_stp->topic_u8a[0], 0U, sizeof(dest_stp->topic_u8a));
         utils_BuildReceiveTopic_chp(this_sst.param_st.deviceName_chp, 
-                                this_sst.param_st.id_chp,
+                                this_sst.param_st.id_u8,
                                 subsHandle_csta[idx_u16].subs_chp,
                                 &tempSubs_ca[0]);
         memcpy(&dest_stp->topic_u8a[0], &tempSubs_ca[0],
@@ -639,53 +639,6 @@ static esp_err_t OnMijaLocationSetHandler_st(mqttif_msg_t *msg_stp)
     return(result_st);
 }
 
-#ifdef TEST
-
-    else if(0U == strncmp(msg_stp->topic_chp, &this_sst.subs_chap[1][0], 
-                        msg_stp->topicLen_u32))
-    {
-        // MQTT_SUB_CMD_SEN_LOC
-        /*char *senId_chp = strtok(msg_stp->data_chp, " ");
-        char *loc_chp = strtok(msg_stp->data_chp, " ");        
-        exeResult_bol &= CHECK_EXE(UpdateSensorLocation_st(atoi(senId_chp), loc_chp));*/
-    }
-    else if(0U == strncmp(msg_stp->topic_chp, &this_sst.subs_chap[2][0], 
-                        msg_stp->topicLen_u32))
-    {
-        // MQTT_SUB_CMD_DEL_TABLE
-        //exeResult_bol &= CHECK_EXE(DeleteSensorTable_st());
-    }
-    else if(0U == strncmp(msg_stp->topic_chp, &this_sst.subs_chap[3][0], 
-                        msg_stp->topicLen_u32))
-    {
-        // MQTT_SUB_CMD_REQ_SETS
-        /*if(0 == msg_stp->dataLen_u32)
-        {
-            exeResult_bol &= CHECK_EXE(PublishSettings_st());
-        }
-        else
-        {
-            char *duration_chp = strtok(msg_stp->data_chp, " ");
-            char *cycle_chp = strtok(msg_stp->data_chp, " ");
-            exeResult_bol &= CHECK_EXE(UpdateScanSettings_st(atoi(duration_chp), atoi(cycle_chp)));
-        }*/
-    }
-    else
-    {
-        ESP_LOGW(TAG, "unexpected topic received: %.*s", msg_stp->topicLen_u32,
-                    msg_stp->topic_chp);
-        exeResult_bol = false;
-    }
-
-    if(false == exeResult_bol)
-    {
-        result_st = ESP_FAIL;
-    }
-
-    return(result_st);
-}
-#endif
-
 /**---------------------------------------------------------------------------------------
  * @brief     function to send sensor data
  * @author    S. Wink
@@ -694,14 +647,11 @@ static esp_err_t OnMijaLocationSetHandler_st(mqttif_msg_t *msg_stp)
 *//*-----------------------------------------------------------------------------------*/
 static void PublishSensorData_vd(uint8_t sensIdx_u8)
 {
-
-    char temporary_cha[mqttif_MAX_SIZE_OF_TOPIC];
-
     if(MQTT_STATE_CONNECTED == this_sst.mqtt_en)
     {
-        sprintf(&temporary_cha[0], "%s%d", MQTT_PUB_TEMP, sensIdx_u8);
-        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_chp,
-                                    &temporary_cha[0], this_sst.pubMsg_st.topic_chp);
+        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, 
+                                    this_sst.param_st.id_u8 + sensIdx_u8,
+                                    MQTT_PUB_TEMP, this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.dataLen_u32 = sprintf(this_sst.pubMsg_st.data_chp, "%.2f",
                                     this_sst.sensors_sta[sensIdx_u8].data_st.temperature_f32);
@@ -709,9 +659,9 @@ static void PublishSensorData_vd(uint8_t sensIdx_u8)
         ESP_LOGD(TAG, "publish: %s :: %s", this_sst.pubMsg_st.topic_chp, 
                     this_sst.pubMsg_st.data_chp);
         
-        sprintf(&temporary_cha[0], "%s%d", MQTT_PUB_HUM, sensIdx_u8);
-        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_chp,
-                                    &temporary_cha[0], this_sst.pubMsg_st.topic_chp);
+        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, 
+                                    this_sst.param_st.id_u8 + sensIdx_u8,
+                                    MQTT_PUB_HUM, this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.dataLen_u32 = sprintf(this_sst.pubMsg_st.data_chp, "%.2f",
                                     this_sst.sensors_sta[sensIdx_u8].data_st.humidity_f32);
@@ -719,9 +669,9 @@ static void PublishSensorData_vd(uint8_t sensIdx_u8)
         ESP_LOGD(TAG, "publish: %s :: %s", this_sst.pubMsg_st.topic_chp, 
                     this_sst.pubMsg_st.data_chp);
         
-        sprintf(&temporary_cha[0], "%s%d", MQTT_PUB_BATT, sensIdx_u8);
-        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_chp,
-                                    &temporary_cha[0], this_sst.pubMsg_st.topic_chp);
+        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, 
+                                    this_sst.param_st.id_u8 + sensIdx_u8,
+                                    MQTT_PUB_BATT, this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.dataLen_u32 = sprintf(this_sst.pubMsg_st.data_chp, "%.2f",
                                     this_sst.sensors_sta[sensIdx_u8].data_st.battery_f32);
@@ -729,9 +679,9 @@ static void PublishSensorData_vd(uint8_t sensIdx_u8)
         ESP_LOGD(TAG, "publish: %s :: %s", this_sst.pubMsg_st.topic_chp, 
                     this_sst.pubMsg_st.data_chp);
 
-        sprintf(&temporary_cha[0], "%s%d", MQTT_PUB_MSGCNT, sensIdx_u8);
-        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_chp,
-                                    &temporary_cha[0], this_sst.pubMsg_st.topic_chp);
+        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, 
+                                    this_sst.param_st.id_u8 + sensIdx_u8,
+                                    MQTT_PUB_MSGCNT, this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.dataLen_u32 = sprintf(this_sst.pubMsg_st.data_chp, "%d",
                                     this_sst.sensors_sta[sensIdx_u8].data_st.msgCnt_u8);
@@ -750,13 +700,12 @@ static void PublishSensorData_vd(uint8_t sensIdx_u8)
 static void PublishSensorParam_vd(uint8_t sensIdx_u8)
 {
 
-    char temporary_cha[mqttif_MAX_SIZE_OF_TOPIC];
 
     if(MQTT_STATE_CONNECTED == this_sst.mqtt_en)
     {
-        sprintf(&temporary_cha[0], "%s%d", MQTT_PUB_ADDR, sensIdx_u8);
-        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_chp,
-                                    &temporary_cha[0], this_sst.pubMsg_st.topic_chp);
+        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, 
+                                    this_sst.param_st.id_u8 + sensIdx_u8 + sensIdx_u8,
+                                    MQTT_PUB_ADDR, this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.dataLen_u32 = 
                     sprintf(this_sst.pubMsg_st.data_chp, "%02X:%02X:%02X:%02X:%02X:%02X",
@@ -770,9 +719,9 @@ static void PublishSensorParam_vd(uint8_t sensIdx_u8)
         ESP_LOGD(TAG, "publish: %s :: %s", this_sst.pubMsg_st.topic_chp, 
                     this_sst.pubMsg_st.data_chp);
         
-        sprintf(&temporary_cha[0], "%s%d", MQTT_PUB_LOC, sensIdx_u8);
-        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_chp,
-                                    &temporary_cha[0], this_sst.pubMsg_st.topic_chp);
+        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, 
+                                    this_sst.param_st.id_u8 + sensIdx_u8,
+                                    MQTT_PUB_LOC, this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.dataLen_u32 = sprintf(this_sst.pubMsg_st.data_chp, "%s",
                                     this_sst.sensors_sta[sensIdx_u8].para_st.loc_cha);
@@ -780,22 +729,12 @@ static void PublishSensorParam_vd(uint8_t sensIdx_u8)
         ESP_LOGD(TAG, "publish: %s :: %s", this_sst.pubMsg_st.topic_chp, 
                     this_sst.pubMsg_st.data_chp);
         
-        sprintf(&temporary_cha[0], "%s%d", MQTT_PUB_KNOW, sensIdx_u8);
-        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_chp,
-                                    &temporary_cha[0], this_sst.pubMsg_st.topic_chp);
+        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, 
+                                    this_sst.param_st.id_u8 + sensIdx_u8,
+                                    MQTT_PUB_KNOW, this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.dataLen_u32 = sprintf(this_sst.pubMsg_st.data_chp, "%d",
                                     this_sst.sensors_sta[sensIdx_u8].para_st.knownSens_u8);
-        CHECK_EXE(this_sst.param_st.publishHandler_fp(&this_sst.pubMsg_st, MAX_PUB_WAIT));
-        ESP_LOGD(TAG, "publish: %s :: %s", this_sst.pubMsg_st.topic_chp, 
-                    this_sst.pubMsg_st.data_chp);
-
-        sprintf(&temporary_cha[0], "%s%d", MQTT_PUB_MSGCNT, sensIdx_u8);
-        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_chp,
-                                    &temporary_cha[0], this_sst.pubMsg_st.topic_chp);
-        this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
-        this_sst.pubMsg_st.dataLen_u32 = sprintf(this_sst.pubMsg_st.data_chp, "%d",
-                                    this_sst.sensors_sta[sensIdx_u8].data_st.msgCnt_u8);
         CHECK_EXE(this_sst.param_st.publishHandler_fp(&this_sst.pubMsg_st, MAX_PUB_WAIT));
         ESP_LOGD(TAG, "publish: %s :: %s", this_sst.pubMsg_st.topic_chp, 
                     this_sst.pubMsg_st.data_chp);
@@ -813,7 +752,7 @@ static void PublishScanParameter_vd(void)
 
     if(MQTT_STATE_CONNECTED == this_sst.mqtt_en)
     {
-        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_chp,
+        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_u8,
                                     MQTT_PUB_SCAN, this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.dataLen_u32 = sprintf(this_sst.pubMsg_st.data_chp, "%d",
@@ -822,7 +761,7 @@ static void PublishScanParameter_vd(void)
         ESP_LOGD(TAG, "publish: %s :: %s", this_sst.pubMsg_st.topic_chp, 
                     this_sst.pubMsg_st.data_chp);
 
-        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_chp,
+        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp, this_sst.param_st.id_u8,
                                     MQTT_PUB_CYCL, this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
         this_sst.pubMsg_st.dataLen_u32 = sprintf(this_sst.pubMsg_st.data_chp, "%d",

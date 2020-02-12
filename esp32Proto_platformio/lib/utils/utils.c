@@ -82,33 +82,17 @@ char* utils_RGBToString_chp(uint8_t red_u8, uint8_t green_u8, uint8_t blue_u8,
     return(pBuffer_p);
 }
 
-
 /**---------------------------------------------------------------------------------------
  * @brief     This function helps to build the complete topic including the
  *              custom device.
 *//*-----------------------------------------------------------------------------------*/
-char* utils_BuildSendTopicWChan_chp(const char *dev_p, const char *channel_p,
-                                      const char *topic_p, char *buffer_p)
-{
-  sprintf(buffer_p, "std/%s/s/%s/%s", dev_p, channel_p, topic_p);
-  return buffer_p;
-}
-
-/**---------------------------------------------------------------------------------------
- * @brief     This function helps to build the complete topic including the
- *              custom device.
-*//*-----------------------------------------------------------------------------------*/
-const char* utils_BuildSendTopic_chp(const char *dev_cchp, const char *channel_cchp,
+const char* utils_BuildSendTopic_chp(const char *dev_cchp, const uint8_t chan_u8,
                                       const char *topic_chp, char *buffer_chp)
 {
-    if(NULL != channel_cchp)
-    {
-        sprintf(buffer_chp, "std/%s/s/%s/%s", dev_cchp, channel_cchp, topic_chp);
-    }
-    else
-    {
-        sprintf(buffer_chp, "std/%s/s/%s", dev_cchp, topic_chp);
-    }
+
+    sprintf(buffer_chp, "std/%s/s/%d/%s", dev_cchp, chan_u8, topic_chp);
+
+
   return dev_cchp;
 }
 
@@ -116,10 +100,10 @@ const char* utils_BuildSendTopic_chp(const char *dev_cchp, const char *channel_c
  * @brief     This function helps to build the complete topic including the
  *              custom device.
 *//*-----------------------------------------------------------------------------------*/
-char* utils_BuildReceiveTopic_chp(const char *dev_p, const char *channel_p,
+char* utils_BuildReceiveTopic_chp(const char *dev_p, const uint8_t chan_u8,
                                       const char *topic_p, char *buffer_p)
 {
-  sprintf(buffer_p, "std/%s/r/%s/%s", dev_p, channel_p, topic_p);
+  sprintf(buffer_p, "std/%s/r/%d/%s", dev_p, chan_u8, topic_p);
   return buffer_p;
 }
 

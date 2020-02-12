@@ -85,34 +85,19 @@ extern char* utils_IntegerToDecString_chp(int32_t value_s32, char* buffer_chp);
 extern char* utils_RGBToString_chp(uint8_t red_u8, uint8_t green_u8, uint8_t blue_u8,
                           char* pBuffer_p);
 
-
-/**---------------------------------------------------------------------------------------
- * @brief     This function helps to build the complete topic including the
- *              custom device.
- * @author    winkste
- * @date      20 Okt. 2017
- * @param     dev_p       pointer to device string
- * @param     channel_p   pointer to channel string
- * @param     topic_p     pointer to topic string
- * @param     buffer_p    pointer to result buffer string
- * @return    combined topic as char pointer, it uses buffer_p to store the topic
-*//*-----------------------------------------------------------------------------------*/
-extern char* utils_BuildSendTopicWChan_chp(const char *dev_p, const char *channel_p,
-                                      const char *topic_p, char *buffer_p);
-
 /**---------------------------------------------------------------------------------------
  * @brief     This function helps to build the complete topic including the
  *              custom device.
  * @author    winkste
  * @date      20 Okt. 2017
  * @param     dev_cchp       pointer to device string
- * @param     channel_cchp   pointer to channel string
+ * @param     chan_u8        channel id
  * @param     topic_cchp     pointer to topic string
  * @param     buffer_chp    pointer to result buffer string
  * @return    combined topic as char pointer, it uses buffer_p to store the topic
 *//*-----------------------------------------------------------------------------------*/
-extern const char* utils_BuildSendTopic_chp(const char *dev_cchp, const char *channel_cchp,
-        const char *topic_chp, char *buffer_chp);
+extern const char* utils_BuildSendTopic_chp(const char *dev_cchp, const uint8_t chan_u8,
+                                      const char *topic_chp, char *buffer_chp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     This function helps to build the complete topic including the
@@ -120,12 +105,12 @@ extern const char* utils_BuildSendTopic_chp(const char *dev_cchp, const char *ch
  * @author    winkste
  * @date      20 Okt. 2017
  * @param     dev_p       pointer to device string
- * @param     channel_p   pointer to channel string
+ * @param     chan_u8     channel id
  * @param     topic_p     pointer to topic string
  * @param     buffer_p    pointer to result buffer string
  * @return    combined topic as char pointer, it uses buffer_p to store the topic
 *//*-----------------------------------------------------------------------------------*/
-extern char* utils_BuildReceiveTopic_chp(const char *dev_p, const char *channel_p,
+extern char* utils_BuildReceiveTopic_chp(const char *dev_p, const uint8_t chan_u8,
                                       const char *topic_p, char *buffer_p);
 
 /**---------------------------------------------------------------------------------------

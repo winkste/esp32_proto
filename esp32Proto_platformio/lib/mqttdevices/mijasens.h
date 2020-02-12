@@ -61,7 +61,7 @@ typedef struct mijasens_param_tag
 {
     mqttif_Publish_td publishHandler_fp;
     char *deviceName_chp;
-    char *id_chp;
+    uint8_t id_u8;
 }mijasens_param_t;
 
 /****************************************************************************************/

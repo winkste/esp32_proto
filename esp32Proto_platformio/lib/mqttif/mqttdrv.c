@@ -143,8 +143,8 @@ esp_err_t mqttdrv_Initialize_td(mqttdrv_param_t *param_stp)
     esp_mqtt_client_config_t mqttCfg_st;
 
     //esp_log_level_set(TAG, ESP_LOG_DEBUG);
-    esp_log_level_set("MQTT_CLIENT", ESP_LOG_WARN);
-    esp_log_level_set("OUTBOX", ESP_LOG_WARN);
+    esp_log_level_set("MQTT_CLIENT", ESP_LOG_DEBUG);
+    esp_log_level_set("OUTBOX", ESP_LOG_DEBUG);
 
     ESP_LOGD(TAG, "initialize mqtt...");
 
