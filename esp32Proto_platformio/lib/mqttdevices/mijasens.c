@@ -45,6 +45,8 @@
 
 #include "mqttif.h"
 #include "paramif.h"
+#include "argtable3/argtable3.h"
+#include "myConsole.h"
 
 #include "bleDrv.h"
 #include "mijaProcl.h"
@@ -58,10 +60,10 @@
 #define MAX_MIJA_SENSORS        5U
 #define LOCATION_STRING_SIZE    20U
 
-#define MQTT_SUBSCRIPTIONS_NUM  6U
+#define MQTT_SUBSCRIPTIONS_NUM  5U
 #define MQTT_SUB_CMD_DEL_TABLE  "mija/delete"   // delete sensor table
 #define MQTT_SUB_CMD_SAVE_TABLE "mija/para"     // saves the  
-#define MQTT_SUB_BLE_PARA       "ble/para"      // r/w request for bluetooth parameter
+//#define MQTT_SUB_BLE_PARA       "ble/para"      // r/w request for bluetooth parameter
 #define MQTT_SUB_CMD_MIJA_PARA  "mija/para"     // r/w request for mija sensor para
 #define MQTT_SUB_CMD_MIJA_DATA  "mija/data"     // read request for mija sensor 
 
@@ -154,6 +156,12 @@ static esp_err_t OnMijaDataRequestHandler_st(mqttif_msg_t *msg_stp);
 static esp_err_t OnMijaKnownStatusSetHandler_st(mqttif_msg_t *msg_stp);
 static esp_err_t OnMijaLocationSetHandler_st(mqttif_msg_t *msg_stp);
 
+static esp_err_t RegisterSensorTableCommands_st(void);
+static int32_t CmdHandlerSensorTable_s32(int32_t argc_s32, char** argv);
+
+static esp_err_t RegisterBleSettingsCommands_st(void);
+static int32_t CmdHandlerBleSettings_s32(int32_t argc_s32, char** argv);
+
 static void PublishSensorData_vd(uint8_t sensIdx_u8);
 static void PublishSensorParam_vd(uint8_t sensIdx_u8);
 static void PublishScanParameter_vd(void);
@@ -188,7 +196,7 @@ const subsHandle_t subsHandle_csta[MQTT_SUBSCRIPTIONS_NUM] =
 {
     {MQTT_SUB_CMD_DEL_TABLE, OnTableDeleteHandler_st},
     {MQTT_SUB_CMD_SAVE_TABLE, OnTableSaveHandler_st},
-    {MQTT_SUB_BLE_PARA, OnMijaBleHandler_st},
+    //{MQTT_SUB_BLE_PARA, OnMijaBleHandler_st},
     {MQTT_SUB_CMD_MIJA_DATA, OnMijaDataRequestHandler_st},
     {MQTT_SUB_CMD_SEN_KNOW, OnMijaKnownStatusSetHandler_st},
     {MQTT_SUB_CMD_SEN_LOC, OnMijaLocationSetHandler_st},
@@ -202,6 +210,28 @@ static const scanParam_t SCAN_DEFAULT_PARA =
 };
 
 static const char *SENSORS_PARA_IDENT = "mijaSen";
+
+static struct
+{
+    struct arg_lit *save_stp;
+    struct arg_lit *delete_stp;
+    struct arg_lit *read_stp;
+    struct arg_lit *write_stp;
+    struct arg_int *id_stp;
+    struct arg_str *loc_stp;
+    struct arg_int *known_stp;
+    struct arg_end *end_stp;
+}cmdSensorTable_sts;
+
+static struct
+{
+    struct arg_lit *read_stp;
+    struct arg_lit *write_stp;
+    struct arg_int *scanDur_stp;
+    struct arg_int *scanCycle_stp;
+    struct arg_end *end_stp;
+}cmdBleScan_sts;
+
 
 /****************************************************************************************/
 /* Global functions (unlimited visibility) */
@@ -269,6 +299,9 @@ esp_err_t mijasens_Initialize_st(mijasens_param_t *param_stp)
 	    params_st.scanDurationInSec_u32 = this_sst.blePara_st.scanDurationInSec_u32;
 	    params_st.dataCb_fp = DriverCallback_vd;
 	    exeResult_bol &= CHECK_EXE(bleDrv_Initialize_st(&params_st));
+
+        exeResult_bol &= CHECK_EXE(RegisterSensorTableCommands_st());
+        exeResult_bol &= CHECK_EXE(RegisterBleSettingsCommands_st());
 
         this_sst.eventGroup_st = xEventGroupCreate();
         exeResult_bol &= (NULL != this_sst.eventGroup_st);
@@ -374,6 +407,175 @@ esp_err_t mijasens_Deactivate_st(void)
 
 /****************************************************************************************/
 /* Local functions: */
+
+/**--------------------------------------------------------------------------------------
+ * @brief     Register seonsor table specific console commands
+ * @author    S. Wink
+ * @date      17. Feb. 2020
+ * @return    ESP_OK if successful, else ESP_FAIL
+*//*-----------------------------------------------------------------------------------*/
+static esp_err_t RegisterSensorTableCommands_st(void)
+{
+    bool exeResult_bol = true;
+    esp_err_t result_st = ESP_OK;
+
+    cmdSensorTable_sts.save_stp = arg_lit0("s", "save", "Command to save the sensor table");
+    cmdSensorTable_sts.delete_stp = arg_lit0("d", "del", "Command to delete the sensor table");
+    cmdSensorTable_sts.read_stp = arg_lit0("r", "read", "Command to read a set all from table");
+    cmdSensorTable_sts.write_stp = arg_lit0("w", "write", "Command to write a sensor set to table");
+    cmdSensorTable_sts.id_stp = arg_int0("i", "id", "<n>", "ID of the sensor");
+    cmdSensorTable_sts.loc_stp = arg_str0("l", "loc", "", "Location of sensor");
+    cmdSensorTable_sts.known_stp = arg_int0("k", "know", "<n>", "Known state of sensor");
+    cmdSensorTable_sts.end_stp = arg_end(2);
+
+    const myConsole_cmd_t paramCmd = 
+    {
+        .command = "sensTab",
+        .help = "Sensor table onfiguration",
+        .hint = NULL,
+        .func = &CmdHandlerSensorTable_s32,
+        .argtable = &cmdSensorTable_sts
+    };
+
+    exeResult_bol = CHECK_EXE(myConsole_CmdRegister_td(&paramCmd));
+
+    if(false == exeResult_bol)
+    {
+        result_st = ESP_FAIL;
+    }
+    return(result_st);
+}
+
+/**--------------------------------------------------------------------------------------
+ * @brief     Handler for console command sensor table
+ * @author    S. Wink
+ * @date      17. Feb. 2020
+ * @param     argc_s32  count of argument list
+ * @param     argv      pointer to argument list
+ * @return    not equal to zero if error detected
+*//*-----------------------------------------------------------------------------------*/
+static int32_t CmdHandlerSensorTable_s32(int32_t argc_s32, char** argv)
+{
+    int32_t retValue_s32 = 1;
+
+    int32_t nerrors_s32 = arg_parse(argc_s32, argv, (void**) &cmdSensorTable_sts);
+
+    if(0 == nerrors_s32) 
+    {
+        printf("test");  
+        printf("-s = %d\n", cmdSensorTable_sts.save_stp->count);
+        printf("-d = %d\n", cmdSensorTable_sts.delete_stp->count);
+        printf("-r = %d\n", cmdSensorTable_sts.read_stp->count);
+        printf("-w = %d\n", cmdSensorTable_sts.write_stp->count);
+        printf("id = %d\n", *cmdSensorTable_sts.id_stp->ival);
+        printf("loc = %s\n", *cmdSensorTable_sts.loc_stp->sval);
+        printf("known = %d\n", *cmdSensorTable_sts.known_stp->ival);
+        retValue_s32 = 0;
+          
+    }
+    else
+    {
+        arg_print_errors(stderr, cmdSensorTable_sts.end_stp, argv[0]);
+        retValue_s32 = 1;
+    }
+    
+
+    return(retValue_s32);
+}
+
+/**--------------------------------------------------------------------------------------
+ * @brief     Register bluetooth settings console commands
+ * @author    S. Wink
+ * @date      17. Feb. 2020
+ * @return    ESP_OK if successful, else ESP_FAIL
+*//*-----------------------------------------------------------------------------------*/
+static esp_err_t RegisterBleSettingsCommands_st(void)
+{
+    bool exeResult_bol = true;
+    esp_err_t result_st = ESP_OK;
+
+    cmdBleScan_sts.read_stp = arg_lit0("r", "read", "Command to read the ble settings");
+    cmdBleScan_sts.write_stp = arg_lit0("w", "write", "Command to write the ble settings");
+    cmdBleScan_sts.scanCycle_stp = arg_int0("c", "cycle", "<s>", "Cycle time in seconds");
+    cmdBleScan_sts.scanDur_stp = arg_int0("s", "scan", "<s>", "Scan duration in seconds");
+    cmdBleScan_sts.end_stp = arg_end(2);
+
+    const myConsole_cmd_t paramCmd = 
+    {
+        .command = "bleSet",
+        .help = "Ble settings command",
+        .hint = NULL,
+        .func = &CmdHandlerBleSettings_s32,
+        .argtable = &cmdBleScan_sts
+    };
+
+    exeResult_bol = CHECK_EXE(myConsole_CmdRegister_td(&paramCmd));
+
+    if(false == exeResult_bol)
+    {
+        result_st = ESP_FAIL;
+    }
+    return(result_st);
+    
+}
+
+/**--------------------------------------------------------------------------------------
+ * @brief     Handler for console command bluetooth settings
+ * @author    S. Wink
+ * @date      17. Feb. 2020
+ * @param     argc_s32  count of argument list
+ * @param     argv      pointer to argument list
+ * @return    not equal to zero if error detected
+*//*-----------------------------------------------------------------------------------*/
+static int32_t CmdHandlerBleSettings_s32(int32_t argc_s32, char** argv)
+{
+    int32_t retValue_s32 = 1;
+    scanParam_t para_st;
+
+    int32_t nerrors_s32 = arg_parse(argc_s32, argv, (void**) &cmdBleScan_sts);
+
+    if(0 == nerrors_s32) 
+    {
+        printf("test");  
+        printf("-r = %d\n", cmdBleScan_sts.read_stp->count);
+        printf("-w = %d\n", cmdBleScan_sts.write_stp->count);
+        printf("cycle = %d\n", *cmdBleScan_sts.scanCycle_stp->ival);
+        printf("scan = %d\n", *cmdBleScan_sts.scanDur_stp->ival);
+
+        if(0U != cmdBleScan_sts.read_stp->count)
+        {
+            // read command
+            printf("cycle time %d secs, scan duration %d secs", 
+                            this_sst.blePara_st.cycleTimeInSec_u32, 
+                            this_sst.blePara_st.scanDurationInSec_u32);
+            retValue_s32 = 0;
+        }
+        else if(0 != cmdBleScan_sts.write_stp->count)
+        {
+            // write command
+            this_sst.blePara_st.cycleTimeInSec_u32 = *cmdBleScan_sts.scanCycle_stp->ival;
+            this_sst.blePara_st.scanDurationInSec_u32 = *cmdBleScan_sts.scanDur_stp->ival;
+            para_st.cycle_u32 = this_sst.blePara_st.cycleTimeInSec_u32;
+            para_st.scanDur_u32 = this_sst.blePara_st.scanDurationInSec_u32;
+            CHECK_EXE(paramif_Write_td(this_sst.scanParam_xp, (uint8_t *) &para_st));
+            ESP_LOGI(TAG, "new cycle time %d secs, scan duration %d secs received and stored", 
+                            this_sst.blePara_st.cycleTimeInSec_u32, 
+                            this_sst.blePara_st.scanDurationInSec_u32);
+            retValue_s32 = 0;
+        }
+        else
+        {
+            retValue_s32 = 1;
+        }      
+    }
+    else
+    {
+        arg_print_errors(stderr, cmdSensorTable_sts.end_stp, argv[0]);
+        retValue_s32 = 1;
+    }
+    
+    return(retValue_s32);
+}
 
 /**--------------------------------------------------------------------------------------
  * @brief     Load the scan parameter from the nvmem
@@ -523,7 +725,7 @@ static esp_err_t OnMijaBleHandler_st(mqttif_msg_t *msg_stp)
     esp_err_t result_st = ESP_OK;
     bool exeResult_bol = true;
 
-    ESP_LOGD(TAG, "message topic:%.*s received with data:%.*s",
+ /*   ESP_LOGD(TAG, "message topic:%.*s received with data:%.*s",
                     msg_stp->topicLen_u32, msg_stp->topic_chp,
                     msg_stp->dataLen_u32, msg_stp->data_chp);
     
@@ -543,7 +745,7 @@ static esp_err_t OnMijaBleHandler_st(mqttif_msg_t *msg_stp)
     if(false == exeResult_bol)
     {
         result_st = ESP_FAIL;
-    }
+    }*/
 
     return(result_st);
 }
