@@ -62,7 +62,7 @@ static int32_t cmdVersionHandler_s32(int32_t argc_s32, char** argv_cpp);
 
 static const char *TAG              = "myVersion";
 static const char *FW_IDENTIFIER    = "00005FW"; // Firmware identification
-static const char *FW_VERSION       = "002";     // Firmware Version
+static const char *FW_VERSION       = "003";     // Firmware Version
 static const char *FW_DESCRIPTION   = "prototype firmware for esp32";
 
 /****************************************************************************************/

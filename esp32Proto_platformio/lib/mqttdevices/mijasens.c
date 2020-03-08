@@ -60,15 +60,17 @@
 #define MAX_MIJA_SENSORS        5U
 #define LOCATION_STRING_SIZE    20U
 
-#define MQTT_SUBSCRIPTIONS_NUM  5U
-#define MQTT_SUB_CMD_DEL_TABLE  "mija/delete"   // delete sensor table
-#define MQTT_SUB_CMD_SAVE_TABLE "mija/para"     // saves the  
-//#define MQTT_SUB_BLE_PARA       "ble/para"      // r/w request for bluetooth parameter
-#define MQTT_SUB_CMD_MIJA_PARA  "mija/para"     // r/w request for mija sensor para
-#define MQTT_SUB_CMD_MIJA_DATA  "mija/data"     // read request for mija sensor 
+#define MQTT_SUBSCRIPTIONS_NUM  1U
 
-#define MQTT_SUB_CMD_SEN_KNOW   "mija/know"     // set sensor to known
-#define MQTT_SUB_CMD_SEN_LOC    "mija/loc"      // set the sensor location
+#define MQTT_SUB_CMD_DATA       "mija/data"       // data send request
+//#define MQTT_SUB_CMD_DEL_TABLE  "mija/delete"   // delete sensor table
+//#define MQTT_SUB_CMD_SAVE_TABLE "mija/para"     // saves the  
+//#define MQTT_SUB_BLE_PARA       "ble/para"      // r/w request for bluetooth parameter
+//#define MQTT_SUB_CMD_MIJA_PARA  "mija/para"     // r/w request for mija sensor para
+//#define MQTT_SUB_CMD_MIJA_DATA  "mija/data"     // read request for mija sensor 
+
+//#define MQTT_SUB_CMD_SEN_KNOW   "mija/know"     // set sensor to known
+//#define MQTT_SUB_CMD_SEN_LOC    "mija/loc"      // set the sensor location
 
 #define MAX_PUB_WAIT            10000
 
@@ -145,21 +147,16 @@ typedef struct moduleData_tag
 /****************************************************************************************/
 /* Local functions prototypes: */
 static esp_err_t LoadScanParameter_st(void); 
-static esp_err_t LoadSensors_st(void);
+//static esp_err_t LoadSensors_st(void);
 static void OnConnectionHandler_vd(void);
 static void OnDisconnectionHandler_vd(void);
-static esp_err_t OnTableDeleteHandler_st(mqttif_msg_t *msg_stp);
-static esp_err_t OnTableSaveHandler_st(mqttif_msg_t *msg_stp);
+static esp_err_t OnSubsReceiveHandler_st(mqttif_msg_t *msg_stp);
 
-static esp_err_t OnMijaDataRequestHandler_st(mqttif_msg_t *msg_stp);
-static esp_err_t OnMijaKnownStatusSetHandler_st(mqttif_msg_t *msg_stp);
-static esp_err_t OnMijaLocationSetHandler_st(mqttif_msg_t *msg_stp);
+//static esp_err_t RegisterSensorTableCommands_st(void);
+//static int32_t CmdHandlerSensorTable_s32(int32_t argc_s32, char** argv);
 
-static esp_err_t RegisterSensorTableCommands_st(void);
-static int32_t CmdHandlerSensorTable_s32(int32_t argc_s32, char** argv);
-
-static esp_err_t RegisterSensorCommands_st(void);
-static int32_t CmdHandlerSensor_s32(int32_t argc_s32, char** argv);
+//static esp_err_t RegisterSensorCommands_st(void);
+//static int32_t CmdHandlerSensor_s32(int32_t argc_s32, char** argv);
 
 static esp_err_t RegisterBleSettingsCommands_st(void);
 static int32_t CmdHandlerBleSettings_s32(int32_t argc_s32, char** argv);
@@ -182,8 +179,8 @@ static const int BLE_DATA_EVENT             = BIT2;
 
 static const char *TAG                      = MODULE_TAG;
 
-static const char *MQTT_PUB_SCAN            = "ble/scan";
-static const char *MQTT_PUB_CYCL            = "ble/cycle";
+//static const char *MQTT_PUB_SCAN            = "ble/scan";
+//static const char *MQTT_PUB_CYCL            = "ble/cycle";
 
 static const char *MQTT_PUB_TEMP            = "mija/temp";
 static const char *MQTT_PUB_HUM             = "mija/hum";
@@ -195,12 +192,7 @@ static const char *MQTT_PUB_KNOW            = "mija/know";
 
 const subsHandle_t subsHandle_csta[MQTT_SUBSCRIPTIONS_NUM] = 
 {
-    {MQTT_SUB_CMD_DEL_TABLE, OnTableDeleteHandler_st},
-    {MQTT_SUB_CMD_SAVE_TABLE, OnTableSaveHandler_st},
-
-    {MQTT_SUB_CMD_MIJA_DATA, OnMijaDataRequestHandler_st},
-    {MQTT_SUB_CMD_SEN_KNOW, OnMijaKnownStatusSetHandler_st},
-    {MQTT_SUB_CMD_SEN_LOC, OnMijaLocationSetHandler_st},
+    {MQTT_SUB_CMD_DATA, OnSubsReceiveHandler_st}
 };
 
 static const char *SCAN_PARA_IDENT = "bleScan";
@@ -210,7 +202,7 @@ static const scanParam_t SCAN_DEFAULT_PARA =
     .cycle_u32 = 20,
 };
 
-static const char *SENSORS_PARA_IDENT = "mijaSen";
+/*static const char *SENSORS_PARA_IDENT = "mijaSen";
 
 static struct
 {
@@ -227,7 +219,7 @@ static struct
     struct arg_str *loc_stp;
     struct arg_int *known_stp;
     struct arg_end *end_stp;
-}cmdSensor_sts;
+}cmdSensor_sts;*/
 
 static struct
 {
@@ -301,7 +293,7 @@ esp_err_t mijasens_Initialize_st(mijasens_param_t *param_stp)
         this_sst.pubMsg_st.retain_s32 = 0;
         this_sst.mqtt_en = MQTT_STATE_DISCONNECTED;
 
-        CHECK_EXE(LoadSensors_st());
+        //CHECK_EXE(LoadSensors_st());
 
         // hard coding the first two available sensors to address 0 and 1
         memcpy(&this_sst.sensors_sta[0].para_st.macAddr_u8a[0], &TEST_SENSOR_0[0], sizeof(TEST_SENSOR_0));
@@ -319,8 +311,8 @@ esp_err_t mijasens_Initialize_st(mijasens_param_t *param_stp)
 	    params_st.dataCb_fp = DriverCallback_vd;
 	    exeResult_bol &= CHECK_EXE(bleDrv_Initialize_st(&params_st));
 
-        exeResult_bol &= CHECK_EXE(RegisterSensorTableCommands_st());
-        exeResult_bol &= CHECK_EXE(RegisterSensorCommands_st());
+        //exeResult_bol &= CHECK_EXE(RegisterSensorTableCommands_st());
+        //exeResult_bol &= CHECK_EXE(RegisterSensorCommands_st());
         exeResult_bol &= CHECK_EXE(RegisterBleSettingsCommands_st());
 
         this_sst.eventGroup_st = xEventGroupCreate();
@@ -434,7 +426,7 @@ esp_err_t mijasens_Deactivate_st(void)
  * @date      17. Feb. 2020
  * @return    ESP_OK if successful, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t RegisterSensorTableCommands_st(void)
+/*static esp_err_t RegisterSensorTableCommands_st(void)
 {
     bool exeResult_bol = true;
     esp_err_t result_st = ESP_OK;
@@ -459,7 +451,7 @@ static esp_err_t RegisterSensorTableCommands_st(void)
         result_st = ESP_FAIL;
     }
     return(result_st);
-}
+}*/
 
 /**--------------------------------------------------------------------------------------
  * @brief     Handler for console command sensor table
@@ -469,7 +461,7 @@ static esp_err_t RegisterSensorTableCommands_st(void)
  * @param     argv      pointer to argument list
  * @return    not equal to zero if error detected
 *//*-----------------------------------------------------------------------------------*/
-static int32_t CmdHandlerSensorTable_s32(int32_t argc_s32, char** argv)
+/*static int32_t CmdHandlerSensorTable_s32(int32_t argc_s32, char** argv)
 {
     int32_t retValue_s32 = 1;
 
@@ -504,7 +496,7 @@ static int32_t CmdHandlerSensorTable_s32(int32_t argc_s32, char** argv)
     
 
     return(retValue_s32);
-}
+}*/
 
 /**--------------------------------------------------------------------------------------
  * @brief     Register seonsor specific console commands
@@ -512,7 +504,7 @@ static int32_t CmdHandlerSensorTable_s32(int32_t argc_s32, char** argv)
  * @date      17. Feb. 2020
  * @return    ESP_OK if successful, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t RegisterSensorCommands_st(void)
+/*static esp_err_t RegisterSensorCommands_st(void)
 {
     bool exeResult_bol = true;
     esp_err_t result_st = ESP_OK;
@@ -540,7 +532,7 @@ static esp_err_t RegisterSensorCommands_st(void)
         result_st = ESP_FAIL;
     }
     return(result_st);
-}
+}*/
 
 /**--------------------------------------------------------------------------------------
  * @brief     Handler for console command sensor 
@@ -550,7 +542,7 @@ static esp_err_t RegisterSensorCommands_st(void)
  * @param     argv      pointer to argument list
  * @return    not equal to zero if error detected
 *//*-----------------------------------------------------------------------------------*/
-static int32_t CmdHandlerSensor_s32(int32_t argc_s32, char** argv)
+/*static int32_t CmdHandlerSensor_s32(int32_t argc_s32, char** argv)
 {
     int32_t retValue_s32 = 1;
 
@@ -594,7 +586,7 @@ static int32_t CmdHandlerSensor_s32(int32_t argc_s32, char** argv)
     
 
     return(retValue_s32);
-}
+}*/
 
 /**--------------------------------------------------------------------------------------
  * @brief     Register bluetooth settings console commands
@@ -683,7 +675,7 @@ static int32_t CmdHandlerBleSettings_s32(int32_t argc_s32, char** argv)
     }
     else
     {
-        arg_print_errors(stderr, cmdSensorTable_sts.end_stp, argv[0]);
+        arg_print_errors(stderr, cmdBleScan_sts.end_stp, argv[0]);
         retValue_s32 = 1;
     }
     
@@ -730,7 +722,7 @@ static esp_err_t LoadScanParameter_st(void)
  * @date      01. Feb. 2020
  * @return    ESP_OK if successful, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t LoadSensors_st(void)
+/*static esp_err_t LoadSensors_st(void)
 {
     bool exeResult_bol = true;
     esp_err_t result_st = ESP_OK;
@@ -760,7 +752,7 @@ static esp_err_t LoadSensors_st(void)
     }
     return(result_st);
 
-}
+}*/
 
 /**---------------------------------------------------------------------------------------
  * @brief     Handler when connected to mqtt broker
@@ -787,13 +779,13 @@ static void OnDisconnectionHandler_vd(void)
 }
 
 /**--------------------------------------------------------------------------------------
- * @brief     Handler when table delete subscription recieved
+ * @brief     Handler when subscription recieved
  * @author    S. Wink
  * @date      01. Feb. 2020
  * @param     msg_stp   message data pointer
  * @return    ESP_OK if successful, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t OnTableDeleteHandler_st(mqttif_msg_t *msg_stp)
+static esp_err_t OnSubsReceiveHandler_st(mqttif_msg_t *msg_stp)
 {
     esp_err_t result_st = ESP_OK;
 
@@ -813,7 +805,7 @@ static esp_err_t OnTableDeleteHandler_st(mqttif_msg_t *msg_stp)
  * @param     msg_stp   message data pointer
  * @return    ESP_OK if successful, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t OnTableSaveHandler_st(mqttif_msg_t *msg_stp)
+/*static esp_err_t OnTableSaveHandler_st(mqttif_msg_t *msg_stp)
 {
     esp_err_t result_st = ESP_OK;
 
@@ -824,7 +816,7 @@ static esp_err_t OnTableSaveHandler_st(mqttif_msg_t *msg_stp)
     ESP_LOGD(TAG, "unimplemented feature to save table");
 
     return(result_st);
-}
+}*/
 
 /**--------------------------------------------------------------------------------------
  * @brief     Handler to request mija measurement data
@@ -833,7 +825,7 @@ static esp_err_t OnTableSaveHandler_st(mqttif_msg_t *msg_stp)
  * @param     msg_stp   message data pointer
  * @return    ESP_OK if successful, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t OnMijaDataRequestHandler_st(mqttif_msg_t *msg_stp)
+/*static esp_err_t OnMijaDataRequestHandler_st(mqttif_msg_t *msg_stp)
 {
     esp_err_t result_st = ESP_OK;
 
@@ -844,7 +836,7 @@ static esp_err_t OnMijaDataRequestHandler_st(mqttif_msg_t *msg_stp)
     ESP_LOGD(TAG, "unimplemented feature to request mija measurement data");
 
     return(result_st);
-}
+}*/
 
 /**--------------------------------------------------------------------------------------
  * @brief     Handler to set mija known status parameter
@@ -853,7 +845,7 @@ static esp_err_t OnMijaDataRequestHandler_st(mqttif_msg_t *msg_stp)
  * @param     msg_stp   message data pointer
  * @return    ESP_OK if successful, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t OnMijaKnownStatusSetHandler_st(mqttif_msg_t *msg_stp)
+/*static esp_err_t OnMijaKnownStatusSetHandler_st(mqttif_msg_t *msg_stp)
 {
     esp_err_t result_st = ESP_OK;
 
@@ -895,7 +887,7 @@ static esp_err_t OnMijaKnownStatusSetHandler_st(mqttif_msg_t *msg_stp)
     }
 
     return(result_st);
-}
+}*/
 
 /**--------------------------------------------------------------------------------------
  * @brief     Handler to set mija location parameter
@@ -904,7 +896,7 @@ static esp_err_t OnMijaKnownStatusSetHandler_st(mqttif_msg_t *msg_stp)
  * @param     msg_stp   message data pointer
  * @return    ESP_OK if successful, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t OnMijaLocationSetHandler_st(mqttif_msg_t *msg_stp)
+/*static esp_err_t OnMijaLocationSetHandler_st(mqttif_msg_t *msg_stp)
 {
     esp_err_t result_st = ESP_OK;
 
@@ -915,7 +907,7 @@ static esp_err_t OnMijaLocationSetHandler_st(mqttif_msg_t *msg_stp)
     ESP_LOGD(TAG, "unimplemented feature to set the mija sensor location parameter");
 
     return(result_st);
-}
+}*/
 
 /**---------------------------------------------------------------------------------------
  * @brief     function to send sensor data

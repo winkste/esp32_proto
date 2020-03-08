@@ -123,7 +123,7 @@ static objectData_t this_sst =
 {
     .cap_en = CAPABILITY_DEFAULT,
     .state_st = STATE_NOT_INITIALIZED,
-    .devName_chp = "dev98",
+    .devName_chp = "dev101",
     .id_chp = "chan1",
     .id_u8 = 0U
 };
@@ -302,9 +302,9 @@ static esp_err_t GenerateMijaDevice_st(void)
     exeResult_bol &= CHECK_EXE(mqttdrv_InitSubscriptParam_td(&subsParam_st));
 
     hasMoreSubscriptions_bol = mijasens_GetSubscriptionByIndex_bol(idx_u16, &subsParam_st);
-    ESP_LOGD(TAG, "topic from mijasens: %s", subsParam_st.topic_u8a);
     while(hasMoreSubscriptions_bol && (ESP_FAIL != result_st))
     {
+        ESP_LOGD(TAG, "topic from mijasens: %s", subsParam_st.topic_u8a);
         exeResult_bol &= (NULL != mqttdrv_AllocSubs_xp(&subsParam_st));
         idx_u16++;
         hasMoreSubscriptions_bol = mijasens_GetSubscriptionByIndex_bol(idx_u16,
