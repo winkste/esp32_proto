@@ -63,8 +63,8 @@ static const char *TAG = "mymain";
  * @return    n/a
 *//*-----------------------------------------------------------------------------------*/
 void app_main()
-{
-    ESP_LOGI(TAG, "starting...");
+{ 
+   ESP_LOGI(TAG, "starting...");
     controlTask_StartSystem_td();
 }
 /****************************************************************************************/
