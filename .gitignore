@@ -30,3 +30,11 @@ esp32Proto_platformio/src/sdkconfig.h
 esp32Proto_platformio/src/sdkconfig.hneu.h
 espProto_eclipse/sdkconfig
 *.sections_info
+old/sdkconfig
+old/sdkconfig 2
+old/sdkconfig 2.h
+old/sdkconfig.h
+old/sdkconfig.hneu.h
+old/secrets.h
+tools/.vscode/settings.json
+esp32Proto_platformio/.vscode/extensions.json
