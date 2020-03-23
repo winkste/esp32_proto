@@ -140,6 +140,7 @@ typedef struct moduleData_tag
     EventGroupHandle_t eventGroup_st;
     TaskHandle_t task_xp;
     QueueHandle_t queue_xp;
+    TimerHandle_t cycleTimer_st;
     paramif_objHdl_t scanParam_xp;
     paramif_objHdl_t sensTable_xp;
 }objectData_t;
@@ -160,12 +161,15 @@ static esp_err_t OnSubsReceiveHandler_st(mqttif_msg_t *msg_stp);
 
 static esp_err_t RegisterBleSettingsCommands_st(void);
 static int32_t CmdHandlerBleSettings_s32(int32_t argc_s32, char** argv);
+static int32_t CmdHandlerBleSettings2_s32(int32_t argc_s32, char** argv, 
+                                            FILE *retStream_xp);
 
 static void PublishSensorData_vd(uint8_t sensIdx_u8);
 static void PublishSensorParam_vd(uint8_t sensIdx_u8);
 
 static void DriverCallback_vd(mijaProcl_parsedData_t *data_stp);
 static void HandleQueueEvent_vd(void);
+static void TimerCallback_vd(TimerHandle_t xTimer);
 static void Task_vd(void *pvParameters);
 
 /****************************************************************************************/
@@ -176,6 +180,7 @@ static objectData_t this_sst;
 static const int MQTT_CONNECT               = BIT0;
 static const int MQTT_DISCONNECT            = BIT1;
 static const int BLE_DATA_EVENT             = BIT2;
+static const int CYCLE_TIMER                = BIT3;
 
 static const char *TAG                      = MODULE_TAG;
 
@@ -201,25 +206,6 @@ static const scanParam_t SCAN_DEFAULT_PARA =
     .scanDur_u32 = 60,
     .cycle_u32 = 20,
 };
-
-/*static const char *SENSORS_PARA_IDENT = "mijaSen";
-
-static struct
-{
-    struct arg_lit *save_stp;
-    struct arg_lit *delete_stp;
-    struct arg_end *end_stp;
-}cmdSensorTable_sts;
-
-static struct
-{
-    struct arg_lit *read_stp;
-    struct arg_lit *write_stp;
-    struct arg_int *id_stp;
-    struct arg_str *loc_stp;
-    struct arg_int *known_stp;
-    struct arg_end *end_stp;
-}cmdSensor_sts;*/
 
 static struct
 {
@@ -293,8 +279,6 @@ esp_err_t mijasens_Initialize_st(mijasens_param_t *param_stp)
         this_sst.pubMsg_st.retain_s32 = 0;
         this_sst.mqtt_en = MQTT_STATE_DISCONNECTED;
 
-        //CHECK_EXE(LoadSensors_st());
-
         // hard coding the first two available sensors to address 0 and 1
         memcpy(&this_sst.sensors_sta[0].para_st.macAddr_u8a[0], &TEST_SENSOR_0[0], sizeof(TEST_SENSOR_0));
         memcpy(&this_sst.sensors_sta[0].para_st.loc_cha[0], TEST_LOC_0, strlen(TEST_LOC_0));
@@ -311,8 +295,6 @@ esp_err_t mijasens_Initialize_st(mijasens_param_t *param_stp)
 	    params_st.dataCb_fp = DriverCallback_vd;
 	    exeResult_bol &= CHECK_EXE(bleDrv_Initialize_st(&params_st));
 
-        //exeResult_bol &= CHECK_EXE(RegisterSensorTableCommands_st());
-        //exeResult_bol &= CHECK_EXE(RegisterSensorCommands_st());
         exeResult_bol &= CHECK_EXE(RegisterBleSettingsCommands_st());
 
         this_sst.eventGroup_st = xEventGroupCreate();
@@ -321,6 +303,10 @@ esp_err_t mijasens_Initialize_st(mijasens_param_t *param_stp)
         xTaskCreate(Task_vd, "mijasensTask", TASK_STACK_SIZE, NULL, 
                                         TASK_PRIORITY, &this_sst.task_xp);
         exeResult_bol &= (NULL != this_sst.task_xp);
+
+        this_sst.cycleTimer_st = xTimerCreate("Timer", pdMS_TO_TICKS(20000), true,
+                                                (void *) 0, TimerCallback_vd);
+        exeResult_bol &= (NULL != this_sst.cycleTimer_st);
 
         this_sst.queue_xp = xQueueCreate(QUEUE_ELEMENTS, sizeof(mijaProcl_parsedData_t));
         exeResult_bol &= (NULL != this_sst.queue_xp);
@@ -385,12 +371,26 @@ extern bool mijasens_GetSubscriptionByIndex_bol(uint16_t idx_u16,
 esp_err_t mijasens_Activate_st(void)
 {
     esp_err_t exeResult_st = ESP_FAIL;
+    bool exeResult_bol = true;
 
     if(    (STATE_INITIALIZED == this_sst.state_en) 
         || (STATE_DEACTIVATED == this_sst.state_en))
+    {      
+        exeResult_bol &= CHECK_EXE(bleDrv_Activate_st());
+        if(NULL != this_sst.cycleTimer_st)
+        {
+            exeResult_bol &= (pdPASS == xTimerStart(this_sst.cycleTimer_st, 0));
+        }      
+    }
+    else
+    {
+        exeResult_bol = false;
+    }
+    
+
+    if(true == exeResult_bol)
     {
         this_sst.state_en = STATE_ACTIVE;
-        bleDrv_Activate_st();
         exeResult_st = ESP_OK;
     }
 
@@ -405,12 +405,22 @@ esp_err_t mijasens_Activate_st(void)
 esp_err_t mijasens_Deactivate_st(void)
 {
     esp_err_t exeResult_st = ESP_FAIL;
+    bool exeResult_bol = true;
 
     if(    (STATE_INITIALIZED == this_sst.state_en) 
         || (STATE_ACTIVE == this_sst.state_en))
+    {      
+        exeResult_bol &= CHECK_EXE(bleDrv_Deactivate_st());
+        if(NULL != this_sst.cycleTimer_st)
+        {
+            exeResult_bol &= (pdPASS == xTimerStop(this_sst.cycleTimer_st, 0));
+        }
+        exeResult_st = ESP_OK;
+    }
+
+    if(true == exeResult_bol)
     {
         this_sst.state_en = STATE_DEACTIVATED;
-        bleDrv_Deactivate_st();
         exeResult_st = ESP_OK;
     }
 
@@ -419,174 +429,6 @@ esp_err_t mijasens_Deactivate_st(void)
 
 /****************************************************************************************/
 /* Local functions: */
-
-/**--------------------------------------------------------------------------------------
- * @brief     Register seonsor table specific console commands
- * @author    S. Wink
- * @date      17. Feb. 2020
- * @return    ESP_OK if successful, else ESP_FAIL
-*//*-----------------------------------------------------------------------------------*/
-/*static esp_err_t RegisterSensorTableCommands_st(void)
-{
-    bool exeResult_bol = true;
-    esp_err_t result_st = ESP_OK;
-
-    cmdSensorTable_sts.save_stp = arg_lit0("s", "save", "Command to save the sensor table");
-    cmdSensorTable_sts.delete_stp = arg_lit0("d", "del", "Command to delete the sensor table");
-    cmdSensorTable_sts.end_stp = arg_end(2);
-
-    const myConsole_cmd_t paramCmd = 
-    {
-        .command = "sensTab",
-        .help = "Sensor table onfiguration",
-        .hint = NULL,
-        .func = &CmdHandlerSensorTable_s32,
-        .argtable = &cmdSensorTable_sts
-    };
-
-    exeResult_bol = CHECK_EXE(myConsole_CmdRegister_td(&paramCmd));
-
-    if(false == exeResult_bol)
-    {
-        result_st = ESP_FAIL;
-    }
-    return(result_st);
-}*/
-
-/**--------------------------------------------------------------------------------------
- * @brief     Handler for console command sensor table
- * @author    S. Wink
- * @date      17. Feb. 2020
- * @param     argc_s32  count of argument list
- * @param     argv      pointer to argument list
- * @return    not equal to zero if error detected
-*//*-----------------------------------------------------------------------------------*/
-/*static int32_t CmdHandlerSensorTable_s32(int32_t argc_s32, char** argv)
-{
-    int32_t retValue_s32 = 1;
-
-    int32_t nerrors_s32 = arg_parse(argc_s32, argv, (void**) &cmdSensorTable_sts);
-
-    if(0 == nerrors_s32) 
-    {
-        ESP_LOGI(TAG, "new sensor table command received: -s=%d, -d=%d", 
-                    cmdSensorTable_sts.save_stp->count, 
-                    cmdSensorTable_sts.delete_stp->count);
-
-        if(0 != cmdSensorTable_sts.save_stp->count)
-        {
-
-            retValue_s32 = 0;
-        }
-        else if(0 != cmdSensorTable_sts.delete_stp->count)
-        {
-            retValue_s32 = 0;
-        }
-        else
-        {
-            ESP_LOGE(TAG, "wrong arguments in sensor table command");
-            retValue_s32 = 1;
-        }         
-    }
-    else
-    {
-        arg_print_errors(stderr, cmdSensorTable_sts.end_stp, argv[0]);
-        retValue_s32 = 1;
-    }
-    
-
-    return(retValue_s32);
-}*/
-
-/**--------------------------------------------------------------------------------------
- * @brief     Register seonsor specific console commands
- * @author    S. Wink
- * @date      17. Feb. 2020
- * @return    ESP_OK if successful, else ESP_FAIL
-*//*-----------------------------------------------------------------------------------*/
-/*static esp_err_t RegisterSensorCommands_st(void)
-{
-    bool exeResult_bol = true;
-    esp_err_t result_st = ESP_OK;
-
-    cmdSensor_sts.read_stp = arg_lit0("r", "read", "Command to read a set from table");
-    cmdSensor_sts.write_stp = arg_lit0("w", "write", "Command to write a sensor set to table");
-    cmdSensor_sts.id_stp = arg_int1("i", "id", "<n>", "ID of the sensor");
-    cmdSensor_sts.loc_stp = arg_str0("l", "loc", "", "Location of sensor");
-    cmdSensor_sts.known_stp = arg_int0("k", "know", "<n>", "Known state of sensor");
-    cmdSensor_sts.end_stp = arg_end(2);
-
-    const myConsole_cmd_t paramCmd = 
-    {
-        .command = "sens",
-        .help = "Sensor configuration",
-        .hint = NULL,
-        .func = &CmdHandlerSensor_s32,
-        .argtable = &cmdSensor_sts
-    };
-
-    exeResult_bol = CHECK_EXE(myConsole_CmdRegister_td(&paramCmd));
-
-    if(false == exeResult_bol)
-    {
-        result_st = ESP_FAIL;
-    }
-    return(result_st);
-}*/
-
-/**--------------------------------------------------------------------------------------
- * @brief     Handler for console command sensor 
- * @author    S. Wink
- * @date      17. Feb. 2020
- * @param     argc_s32  count of argument list
- * @param     argv      pointer to argument list
- * @return    not equal to zero if error detected
-*//*-----------------------------------------------------------------------------------*/
-/*static int32_t CmdHandlerSensor_s32(int32_t argc_s32, char** argv)
-{
-    int32_t retValue_s32 = 1;
-
-    int32_t nerrors_s32 = arg_parse(argc_s32, argv, (void**) &cmdSensor_sts);
-
-    if(0 == nerrors_s32) 
-    {
-        ESP_LOGI(TAG, "new sensor command received: -r=%d, -w=%d, id=%d, loc=%s, known=%d", 
-                            cmdSensor_sts.read_stp->count, 
-                            cmdSensor_sts.write_stp->count,
-                            *cmdSensor_sts.id_stp->ival,
-                            *cmdSensor_sts.loc_stp->sval,
-                            *cmdSensor_sts.known_stp->ival);
-        
-        if(MAX_MIJA_SENSORS > *cmdSensor_sts.id_stp->ival)
-        {
-            // valid sensor id received, process the requested commmand
-            if(0 != cmdSensor_sts.write_stp->count)
-            {
-                // write new sensor data to table
-                this_sst.sensors_sta[*cmdSensor_sts.id_stp->ival].para_st.knownSens_u8 = *cmdSensor_sts.known_stp->ival;
-                memcpy(&this_sst.sensors_sta[*cmdSensor_sts.id_stp->ival].para_st.loc_cha[0], *cmdSensor_sts.loc_stp->sval, strlen(*cmdSensor_sts.loc_stp->sval));
-            }
-            if(0 != cmdSensor_sts.read_stp->count)
-            {
-                printf("sensor ID: %d, sensor loc:%s, sensor known: %d\n", *cmdSensor_sts.id_stp->ival,
-                        &this_sst.sensors_sta[*cmdSensor_sts.id_stp->ival].para_st.loc_cha[0],
-                        this_sst.sensors_sta[*cmdSensor_sts.id_stp->ival].para_st.knownSens_u8);
-            }
-        }
-
-
-        retValue_s32 = 0;
-          
-    }
-    else
-    {
-        arg_print_errors(stderr, cmdSensor_sts.end_stp, argv[0]);
-        retValue_s32 = 1;
-    }
-    
-
-    return(retValue_s32);
-}*/
 
 /**--------------------------------------------------------------------------------------
  * @brief     Register bluetooth settings console commands
@@ -598,6 +440,7 @@ static esp_err_t RegisterBleSettingsCommands_st(void)
 {
     bool exeResult_bol = true;
     esp_err_t result_st = ESP_OK;
+    myConsole_cmd_t paramCmd;
 
     cmdBleScan_sts.read_stp = arg_lit0("r", "read", "Command to read the ble settings");
     cmdBleScan_sts.write_stp = arg_lit0("w", "write", "Command to write the ble settings");
@@ -605,16 +448,16 @@ static esp_err_t RegisterBleSettingsCommands_st(void)
     cmdBleScan_sts.scanDur_stp = arg_int0("s", "scan", "<s>", "Scan duration in seconds");
     cmdBleScan_sts.end_stp = arg_end(2);
 
-    const myConsole_cmd_t paramCmd = 
-    {
-        .command = "bleSet",
-        .help = "Ble settings command",
-        .hint = NULL,
-        .func = &CmdHandlerBleSettings_s32,
-        .argtable = &cmdBleScan_sts
-    };
+    exeResult_bol = CHECK_EXE(myConsole_CmdInit_td(&paramCmd));
+    
+    paramCmd.command = "bleSet";
+    paramCmd.help = "Ble settings command";
+    paramCmd.hint = NULL;
+    //paramCmd.func = &CmdHandlerBleSettings_s32;
+    paramCmd.func2 = &CmdHandlerBleSettings2_s32;
+    paramCmd.argtable = &cmdBleScan_sts;
 
-    exeResult_bol = CHECK_EXE(myConsole_CmdRegister_td(&paramCmd));
+    exeResult_bol &= CHECK_EXE(myConsole_CmdRegister_td(&paramCmd));
 
     if(false == exeResult_bol)
     {
@@ -683,6 +526,68 @@ static int32_t CmdHandlerBleSettings_s32(int32_t argc_s32, char** argv)
 }
 
 /**--------------------------------------------------------------------------------------
+ * @brief     Handler for console command bluetooth settings
+ * @author    S. Wink
+ * @date      17. Feb. 2020
+ * @param     argc_s32      count of argument list
+ * @param     argv          pointer to argument list
+ * @param     retStream_xp  return stream for output data to the user
+ * @return    not equal to zero if error detected
+*//*-----------------------------------------------------------------------------------*/
+static int32_t CmdHandlerBleSettings2_s32(int32_t argc_s32, char** argv, 
+                                            FILE *retStream_xp)
+{
+    int32_t retValue_s32 = 1;
+    scanParam_t para_st;
+
+    int32_t nerrors_s32 = arg_parse(argc_s32, argv, (void**) &cmdBleScan_sts);
+
+    if(0 == nerrors_s32) 
+    { 
+        ESP_LOGI(TAG, "new ble settings command received: -r=%d, -w=%d, cycle=%d, scan=%d", 
+                            cmdBleScan_sts.read_stp->count, 
+                            cmdBleScan_sts.write_stp->count,
+                            *cmdBleScan_sts.scanCycle_stp->ival,
+                            *cmdBleScan_sts.scanDur_stp->ival);
+
+        if(0U != cmdBleScan_sts.read_stp->count)
+        {
+            // read command
+            fprintf(retStream_xp,"cycle time %d secs, scan duration %d secs", 
+                            this_sst.blePara_st.cycleTimeInSec_u32, 
+                            this_sst.blePara_st.scanDurationInSec_u32);
+            fprintf(retStream_xp,"\n");
+            fflush(retStream_xp);
+            retValue_s32 = 0;
+        }
+        else if(0 != cmdBleScan_sts.write_stp->count)
+        {
+            // write command
+            this_sst.blePara_st.cycleTimeInSec_u32 = *cmdBleScan_sts.scanCycle_stp->ival;
+            this_sst.blePara_st.scanDurationInSec_u32 = *cmdBleScan_sts.scanDur_stp->ival;
+            para_st.cycle_u32 = this_sst.blePara_st.cycleTimeInSec_u32;
+            para_st.scanDur_u32 = this_sst.blePara_st.scanDurationInSec_u32;
+            CHECK_EXE(paramif_Write_td(this_sst.scanParam_xp, (uint8_t *) &para_st));
+            ESP_LOGI(TAG, "new cycle time %d secs, scan duration %d secs received and stored", 
+                            this_sst.blePara_st.cycleTimeInSec_u32, 
+                            this_sst.blePara_st.scanDurationInSec_u32);
+            retValue_s32 = 0;
+        }
+        else
+        {
+            retValue_s32 = 1;
+        }      
+    }
+    else
+    {
+        arg_print_errors(stderr, cmdBleScan_sts.end_stp, argv[0]);
+        retValue_s32 = 1;
+    }
+    
+    return(retValue_s32);
+}
+
+/**--------------------------------------------------------------------------------------
  * @brief     Load the scan parameter from the nvmem
  * @author    S. Wink
  * @date      01. Feb. 2020
@@ -715,44 +620,6 @@ static esp_err_t LoadScanParameter_st(void)
     return(result_st);
 
 }
-
-/**--------------------------------------------------------------------------------------
- * @brief     Load the sknown sensors from the nvmem
- * @author    S. Wink
- * @date      01. Feb. 2020
- * @return    ESP_OK if successful, else ESP_FAIL
-*//*-----------------------------------------------------------------------------------*/
-/*static esp_err_t LoadSensors_st(void)
-{
-    bool exeResult_bol = true;
-    esp_err_t result_st = ESP_OK;
-    paramif_allocParam_t deviceAllocParam_st;
-    sensorParam_t localPara_sta[MAX_MIJA_SENSORS];
-
-    memset(&localPara_sta[0], 0U, sizeof(localPara_sta));
-    exeResult_bol &= CHECK_EXE(paramif_InitializeAllocParameter_td(
-                                                &deviceAllocParam_st));
-    deviceAllocParam_st.length_u16 = sizeof(localPara_sta);
-    deviceAllocParam_st.defaults_u8p = NULL;
-    deviceAllocParam_st.nvsIdent_cp = SENSORS_PARA_IDENT;
-    this_sst.sensTable_xp = paramif_Allocate_stp(&deviceAllocParam_st);
-    paramif_PrintHandle_vd(this_sst.sensTable_xp);
-    exeResult_bol &= CHECK_EXE(paramif_Read_td(this_sst.sensTable_xp, 
-                                                (uint8_t *) &localPara_sta[0]));
-    
-    for(uint8_t idx_u8 = 0U; idx_u8 <  MAX_MIJA_SENSORS; idx_u8++)
-    {
-        memcpy(&this_sst.sensors_sta[idx_u8].para_st, &localPara_sta[idx_u8], 
-                sizeof(sensorParam_t));
-    }
-    
-    if(true == exeResult_bol)
-    {
-        result_st = ESP_FAIL;
-    }
-    return(result_st);
-
-}*/
 
 /**---------------------------------------------------------------------------------------
  * @brief     Handler when connected to mqtt broker
@@ -797,117 +664,6 @@ static esp_err_t OnSubsReceiveHandler_st(mqttif_msg_t *msg_stp)
 
     return(result_st);
 }
-
-/**--------------------------------------------------------------------------------------
- * @brief     Handler when table save subscription recieved
- * @author    S. Wink
- * @date      01. Feb. 2020
- * @param     msg_stp   message data pointer
- * @return    ESP_OK if successful, else ESP_FAIL
-*//*-----------------------------------------------------------------------------------*/
-/*static esp_err_t OnTableSaveHandler_st(mqttif_msg_t *msg_stp)
-{
-    esp_err_t result_st = ESP_OK;
-
-    ESP_LOGD(TAG, "message topic:%.*s received with data:%.*s",
-                    msg_stp->topicLen_u32, msg_stp->topic_chp,
-                    msg_stp->dataLen_u32, msg_stp->data_chp);
-    
-    ESP_LOGD(TAG, "unimplemented feature to save table");
-
-    return(result_st);
-}*/
-
-/**--------------------------------------------------------------------------------------
- * @brief     Handler to request mija measurement data
- * @author    S. Wink
- * @date      01. Feb. 2020
- * @param     msg_stp   message data pointer
- * @return    ESP_OK if successful, else ESP_FAIL
-*//*-----------------------------------------------------------------------------------*/
-/*static esp_err_t OnMijaDataRequestHandler_st(mqttif_msg_t *msg_stp)
-{
-    esp_err_t result_st = ESP_OK;
-
-    ESP_LOGD(TAG, "message topic:%.*s received with data:%.*s",
-                    msg_stp->topicLen_u32, msg_stp->topic_chp,
-                    msg_stp->dataLen_u32, msg_stp->data_chp);
-    
-    ESP_LOGD(TAG, "unimplemented feature to request mija measurement data");
-
-    return(result_st);
-}*/
-
-/**--------------------------------------------------------------------------------------
- * @brief     Handler to set mija known status parameter
- * @author    S. Wink
- * @date      01. Feb. 2020
- * @param     msg_stp   message data pointer
- * @return    ESP_OK if successful, else ESP_FAIL
-*//*-----------------------------------------------------------------------------------*/
-/*static esp_err_t OnMijaKnownStatusSetHandler_st(mqttif_msg_t *msg_stp)
-{
-    esp_err_t result_st = ESP_OK;
-
-    ESP_LOGD(TAG, "message topic:%.*s received with data:%.*s",
-                    msg_stp->topicLen_u32, msg_stp->topic_chp,
-                    msg_stp->dataLen_u32, msg_stp->data_chp);
-    if(1U == msg_stp->dataLen_u32)
-    {
-        char *senId_chp = strtok(msg_stp->data_chp, " ");
-        if(MAX_MIJA_SENSORS > atoi(senId_chp))
-        {
-            PublishSensorParam_vd(atoi(senId_chp)); 
-        }   
-        else
-        {
-            result_st = ESP_FAIL;
-        }
-             
-    }
-    else if( 1U < msg_stp->dataLen_u32)
-    {
-        char *senId_chp = strtok(msg_stp->data_chp, " ");
-        char *state_chp = strtok(msg_stp->data_chp, " "); 
-
-        if((MAX_MIJA_SENSORS > atoi(senId_chp)) 
-            && ((0U == atoi(state_chp) || (1U == atoi(state_chp)))))
-        {
-            this_sst.sensors_sta[atoi(senId_chp)].para_st.knownSens_u8 = atoi(state_chp);
-            PublishSensorParam_vd(atoi(senId_chp));
-        }
-        else
-        {
-            result_st = ESP_FAIL;
-        }      
-    }
-    else
-    {
-        result_st = ESP_FAIL;
-    }
-
-    return(result_st);
-}*/
-
-/**--------------------------------------------------------------------------------------
- * @brief     Handler to set mija location parameter
- * @author    S. Wink
- * @date      01. Feb. 2020
- * @param     msg_stp   message data pointer
- * @return    ESP_OK if successful, else ESP_FAIL
-*//*-----------------------------------------------------------------------------------*/
-/*static esp_err_t OnMijaLocationSetHandler_st(mqttif_msg_t *msg_stp)
-{
-    esp_err_t result_st = ESP_OK;
-
-    ESP_LOGD(TAG, "message topic:%.*s received with data:%.*s",
-                    msg_stp->topicLen_u32, msg_stp->topic_chp,
-                    msg_stp->dataLen_u32, msg_stp->data_chp);
-    
-    ESP_LOGD(TAG, "unimplemented feature to set the mija sensor location parameter");
-
-    return(result_st);
-}*/
 
 /**---------------------------------------------------------------------------------------
  * @brief     function to send sensor data
@@ -1096,16 +852,28 @@ static void HandleQueueEvent_vd(void)
                 }
             }
 
-            if(sensIdFound_u8 < MAX_MIJA_SENSORS)
+            /*if(sensIdFound_u8 < MAX_MIJA_SENSORS)
             {
                 
                 PublishSensorData_vd(sensIdFound_u8);
                 PublishSensorParam_vd(sensIdFound_u8);
                 ESP_LOGD(TAG, "*** Sensor ID: %d ***", sensIdFound_u8);
                 mijaProcl_PrintMessage_bol(&this_sst.sensors_sta[sensIdFound_u8].data_st);
-            }
+            }*/
         }
     }
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     callback function for the timer event handler
+ * @author    S. Wink
+ * @date      18. Mar. 2020
+ * @param     xTimer      handle to timer
+*//*-----------------------------------------------------------------------------------*/
+static void TimerCallback_vd(TimerHandle_t xTimer)
+{
+    ESP_LOGD(TAG, "timer callback...");
+    xEventGroupSetBits(this_sst.eventGroup_st, CYCLE_TIMER);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -1117,7 +885,8 @@ static void HandleQueueEvent_vd(void)
 static void Task_vd(void *pvParameters)
 {
     EventBits_t uxBits_st;
-    uint32_t bits_u32 =   MQTT_CONNECT | MQTT_DISCONNECT | BLE_DATA_EVENT;
+    uint32_t bits_u32 =   MQTT_CONNECT | MQTT_DISCONNECT | BLE_DATA_EVENT | CYCLE_TIMER;
+    uint8_t sensId_u8 = 0U;
 
     ESP_LOGD(TAG, "mijasens-task started...");
     while(1)
@@ -1137,6 +906,13 @@ static void Task_vd(void *pvParameters)
         if(0 != (uxBits_st & BLE_DATA_EVENT))
         {
 			HandleQueueEvent_vd();
+        }
+
+        if(0 != (uxBits_st & CYCLE_TIMER))
+        {
+			PublishSensorData_vd(sensId_u8);
+            PublishSensorParam_vd(sensId_u8);
+            sensId_u8 = (sensId_u8 + 1U) % 2U;
         }
     }
 }
