@@ -54,11 +54,11 @@
 #define MQTT_PUB_FW_IDENT         "gen/fwident" //firmware identification
 #define MQTT_PUB_FW_VERSION       "gen/fwversion" //firmware version
 #define MQTT_PUB_FW_DESC          "gen/desc" //firmware description
-#define MQTT_PUB_HEALTH           "gen/health" //health counter of application
+#define MQTT_PUB_HEALTH           "health/tic" //health counter of application
 
 #define MQTT_PUB_DEV_ROOM         "gen/room" //firmware room
 #define MQTT_PUB_CAP              "gen/cap"  // send capability
-#define MQTT_PUB_TRACE            "gen/trac" // send trace channel
+#define MQTT_PUB_TRACE            "trace" // send trace channel
 #define MQTT_SUB_COMMAND          "gen/cmd" // command message for generic read commands
 #define MQTT_PAYLOAD_CMD_INFO     "INFO"
 #define MQTT_SUBSCRIPTIONS_NUM    2U
@@ -205,7 +205,7 @@ esp_err_t gendev_Initialize_st(gendev_param_t *param_stp)
         result_st = ESP_FAIL;
     }
 
-    this_sst.cycleTimer_st = xTimerCreate("Timer", pdMS_TO_TICKS(10000), true,
+    this_sst.cycleTimer_st = xTimerCreate("Timer", pdMS_TO_TICKS(60000), true,
                                                 (void *) 0, TimerCallback_vd);
     if(NULL == this_sst.cycleTimer_st)
     {

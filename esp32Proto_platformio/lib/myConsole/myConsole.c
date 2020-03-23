@@ -102,8 +102,7 @@ typedef enum {
 
 /****************************************************************************************/
 /* Local functions prototypes: */
-static int HelpCommand_i(int argc, char **argv);
-static int HelpCommand2_i(int argc, char **argv, FILE *retStream_xp, uint16_t *length_u16p);
+static int HelpCommand2_i(int argc, char **argv, FILE *retStream_xp);
 static const cmdItem_t *FindCommandByName_stp(const char *name_cpc);
 
 /****************************************************************************************/
@@ -161,9 +160,19 @@ esp_err_t myConsole_DeInit_td()
 /**---------------------------------------------------------------------------------------
  * @brief   Initializes the console command to defaults
 *//*------------------------------------------------------------------------------------*/
-esp_err_t myConsole_CmdInit_td(const myConsole_cmd_t *cmd_stp)
+esp_err_t myConsole_CmdInit_td(myConsole_cmd_t *cmd_stp)
 {
-    return(ESP_FAIL);
+    if(NULL != cmd_stp)
+    {
+        memset(cmd_stp, 0U, sizeof(myConsole_cmd_t));
+        return(ESP_OK);
+    } 
+    else
+    {
+        return(ESP_FAIL);
+    }
+    
+    
 }
 
 /**---------------------------------------------------------------------------------------
@@ -263,7 +272,7 @@ esp_err_t myConsole_Run_td(const char *cmdline_cpc, int *cmdRet_ip)
 /**---------------------------------------------------------------------------------------
  * @brief   Run command line
 *//*------------------------------------------------------------------------------------*/
-esp_err_t myConsole_Run2_td(const char *cmdline_cpc, int *cmdRet_ip, FILE *retStream_xp, uint16_t *length_u16p)
+esp_err_t myConsole_Run2_td(const char *cmdline_cpc, int *cmdRet_ip, FILE *retStream_xp)
 {
     if (tmpLineBuf_cps == NULL)
     {
@@ -294,7 +303,7 @@ esp_err_t myConsole_Run2_td(const char *cmdline_cpc, int *cmdRet_ip, FILE *retSt
     {
         if(NULL != retStream_xp)
         {
-            *cmdRet_ip = (cmd_stp->func2)(argc, argv, retStream_xp, length_u16p);
+            *cmdRet_ip = (cmd_stp->func2)(argc, argv, retStream_xp);
         }
     }
     else
@@ -315,7 +324,8 @@ esp_err_t myConsole_RegisterHelpCommand()
     myConsole_cmd_t command_st = {
         .command = "help",
         .help = "Print the list of registered commands",
-        .func = &HelpCommand_i,
+        //.func = &HelpCommand_i,
+        .func = NULL,
         .func2 = &HelpCommand2_i
     };
     return myConsole_CmdRegister_td(&command_st);
@@ -412,53 +422,12 @@ size_t myConsole_SplitArgv(char *line_cp, char **argv_cpp, size_t argvSize_st)
  * @brief   Help command function, prints all commands registered to console
  * @author  S. Wink
  * @date    31. Jan. 2019
- * @param[in]   argc  number of arguments
- * @param[in]   argv list of arguments
- * @return      0U
-*//*------------------------------------------------------------------------------------*/
-static int HelpCommand_i(int argc, char **argv)
-{
-    cmdItem_t *it_stp;
-    
-    /* Print summary of each command */
-    SLIST_FOREACH(it_stp, &cmdList_sts, next)
-    {
-        if (it_stp->help == NULL)
-        {
-            continue;
-        }
-        /* First line: command name and hint
-         * Pad all the hints to the same column
-         */
-        const char *hint = (it_stp->hint) ? it_stp->hint : "";
-        printf("%-s %s\n", it_stp->command, hint);
-        /* Second line: print help.
-         * Argtable has a nice helper function for this which does line
-         * wrapping.
-         */
-        printf("  "); // arg_print_formatted does not indent the first line
-        arg_print_formatted(stdout, 2, 78, it_stp->help);
-        /* Finally, print the list of arguments */
-        if (it_stp->argtable)
-        {
-            arg_print_glossary(stdout, (void **) it_stp->argtable, "  %12s  %s\n");
-        }
-        printf("\n");
-    }
-    return 0U;
-}
-
-/**---------------------------------------------------------------------------------------
- * @brief   Help command function, prints all commands registered to console
- * @author  S. Wink
- * @date    31. Jan. 2019
  * @param[in]   argc            number of arguments
  * @param[in]   argv            list of arguments
  * @param[out]  retStream_xp    stream for return data
- * @param[out]  length_u16p     bytes send to out stream
  * @return      0U
 *//*------------------------------------------------------------------------------------*/
-static int HelpCommand2_i(int argc, char **argv, FILE *retStream_xp, uint16_t *length_u16p)
+static int HelpCommand2_i(int argc, char **argv, FILE *retStream_xp)
 {
     cmdItem_t *it_stp;
 

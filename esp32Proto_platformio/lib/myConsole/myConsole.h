@@ -65,7 +65,7 @@ typedef struct {
  * @return console command return code, 0 indicates "success"
  */
 typedef int (*myConsole_cmdFunc_t)(int argc, char** argv);
-typedef int (*myConsole_cmdFunc2_t)(int argc, char** argv, FILE *retStream_xp, uint16_t *length_u16p);
+typedef int (*myConsole_cmdFunc2_t)(int argc, char** argv, FILE *retStream_xp);
 
 /**
  * @brief Console command description
@@ -140,7 +140,7 @@ extern esp_err_t myConsole_DeInit_td();
  *          - ESP_OK on success
  *          - ESP_FAIL if pointer is NULL
 *//*------------------------------------------------------------------------------------*/
-extern esp_err_t myConsole_CmdInit_td(const myConsole_cmd_t *cmd_stp);
+extern esp_err_t myConsole_CmdInit_td(myConsole_cmd_t *cmd_stp);
 
 /**---------------------------------------------------------------------------------------
  * @brief   Register console command
@@ -175,7 +175,6 @@ extern esp_err_t myConsole_Run_td(const char* cmdline_cpc, int* cmdReturn_ip);
  * @param cmdline command line (command name followed by a number of arguments)
  * @param[out] cmd_ret return code from the command (set if command was run)
  * @param[out]  retStream_xp    stream for return data
- * @param[out]  length_u16p     bytes send to out stream
  * @return
  *      - ESP_OK, if command was run
  *      - ESP_ERR_INVALID_ARG, if the command line is empty, or only contained
@@ -183,7 +182,7 @@ extern esp_err_t myConsole_Run_td(const char* cmdline_cpc, int* cmdReturn_ip);
  *      - ESP_ERR_NOT_FOUND, if command with given name wasn't registered
  *      - ESP_ERR_INVALID_STATE, if esp_console_init wasn't called
 *//*------------------------------------------------------------------------------------*/
-esp_err_t myConsole_Run2_td(const char *cmdline_cpc, int *cmdRet_ip, FILE *retStream_xp, uint16_t *length_u16p);
+esp_err_t myConsole_Run2_td(const char *cmdline_cpc, int *cmdRet_ip, FILE *retStream_xp);
 
 /**---------------------------------------------------------------------------------------
  * @brief Split command line into arguments in place
