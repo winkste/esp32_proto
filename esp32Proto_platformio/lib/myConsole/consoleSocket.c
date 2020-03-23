@@ -30,7 +30,12 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 /***************************************************************************************/
 /* Include Interfaces */
+
 #include "consoleSocket.h"
+
+#include <stdio.h>
+#include "stdlib.h"
+#include "string.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -42,8 +47,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "lwip/sys.h"
 #include <lwip/netdb.h>
 #include "esp_err.h"
-#include "stdlib.h"
-#include "string.h"
+
 
 #include "sdkconfig.h"
 #include "myConsole.h"
@@ -69,7 +73,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /***************************************************************************************/
 /* Local functions prototypes: */
 static void ExecuteTcpSocket(void);
-static esp_err_t ExecuteCommand(char *cmdBuffer_cp);
+static esp_err_t ExecuteCommand(char *cmdBuffer_cp, FILE *outStream_xp);
 static esp_err_t StartConnection(char* addr_cp, int* listenSocket_ip,
                                  char** rxBuffer_chpp);
 static void StopConnection(int sock_i, int listenSocket_i, char* rxBuffer_chp);
@@ -226,15 +230,31 @@ static void ExecuteTcpSocket(void)
                 *(rxBuffer_chp + length_s32 + 1) = '\n';
                 ESP_LOGI(TAG, "Received %d bytes from %s", length_s32, addr_str);
 
-                if(ESP_OK == ExecuteCommand(rxBuffer_chp))
+                FILE *outStream_xp;
+                char *buf;
+                size_t len;
+                outStream_xp = open_memstream(&buf, &len);
+
+                if(ESP_OK == ExecuteCommand(rxBuffer_chp, outStream_xp))
                 {
-                    sprintf(rxBuffer_chp, "OK\r\n");
+                    if(0 != len)
+                    {
+                        sprintf(rxBuffer_chp, "%s", buf);
+                    }
+                    else
+                    {
+                        sprintf(rxBuffer_chp, "OK\r\n");
+                    }               
                 }
                 else
                 {
                     ESP_LOGI(TAG, "Unrecognized msg: %s", rxBuffer_chp);
                     sprintf(rxBuffer_chp, "ERROR\r\n");
                 }
+
+                fclose(outStream_xp);
+                free(buf);
+
 
                 length_s32 = strlen(rxBuffer_chp);
                 result_s32 = send(workSock_s32, rxBuffer_chp, length_s32, 0U);
@@ -259,13 +279,13 @@ static void ExecuteTcpSocket(void)
  * @param     cmdBuffer_cp  Buffer to command data which shall be executed
  * @return    returns ESP_OK if success, in all other cases ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-static esp_err_t ExecuteCommand(char *cmdBuffer_cp)
+static esp_err_t ExecuteCommand(char *cmdBuffer_cp, FILE *outStream_xp)
 {
     esp_err_t cmdExeResult_st = ESP_FAIL;
     esp_err_t err_st = ESP_FAIL;
     int32_t cmdResponse_s32 = 0;
 
-    err_st = myConsole_Run_td(cmdBuffer_cp, &cmdResponse_s32);
+    err_st = myConsole_Run2_td(cmdBuffer_cp, &cmdResponse_s32, outStream_xp);
 
     if (ESP_ERR_NOT_FOUND == err_st)
     {
