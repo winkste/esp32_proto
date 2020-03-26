@@ -76,7 +76,6 @@ typedef struct ctrlData_tag
 /* Local functions prototypes: */
 static void Task_vd(void *param_vdp);
 static void RegisterCommands_vd(void);
-static int CommandInfoHandler_i(int argc, char** argv);
 static int CommandRebootHandler_i(int argc, char** argv);
 static void ServiceCbWifiStationConn_vd(void);
 static void ServiceCbWifiApClientConn_vd(void);
@@ -84,7 +83,6 @@ static void ServiceCbWifiDisconnected_vd(void);
 static void StartFullService_vd(void);
 static void StartSelfServicesOnly_vd(void);
 static void SocketErrorCb_vd(void);
-static void PrintFirmwareIdent_vd(void);
 
 static void InitializeParameterHandling_vd(void);
 static void StartupAndApplicationIdent_vd(void);
@@ -226,13 +224,6 @@ static void Task_vd(void *param_vdp)
 *//*-----------------------------------------------------------------------------------*/
 static void RegisterCommands_vd(void)
 {
-    const myConsole_cmd_t infoCmd_stc =
-    {
-        .command = "info",
-        .help = "Get control task information log",
-        .func = &CommandInfoHandler_i,
-    };
-
     const myConsole_cmd_t rebootCommand_stc =
     {
         .command = "boot",
@@ -240,23 +231,7 @@ static void RegisterCommands_vd(void)
         .func = &CommandRebootHandler_i,
     };
 
-    ESP_ERROR_CHECK(myConsole_CmdRegister_td(&infoCmd_stc));
     ESP_ERROR_CHECK(myConsole_CmdRegister_td(&rebootCommand_stc));
-}
-
-/**---------------------------------------------------------------------------------------
- * @brief     Handler for console command to printout control information
- * @author    S. Wink
- * @date      24. Jan. 2019
- * @param     argc  count of argument list
- * @param     argv  pointer to argument list
- * @return    not equal to zero if error detected
-*//*-----------------------------------------------------------------------------------*/
-static int CommandInfoHandler_i(int argc, char** argv)
-{
-    ESP_LOGI(TAG, "information request command received");
-    PrintFirmwareIdent_vd();
-    return(0);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -346,30 +321,6 @@ static void SocketErrorCb_vd(void)
 }
 
 /**---------------------------------------------------------------------------------------
- * @brief     Print the firmware identification to serial
- * @author    S. Wink
- * @date      06. Sep. 2019
-*//*-----------------------------------------------------------------------------------*/
-static void PrintFirmwareIdent_vd(void)
-{
-    ESP_LOGI(TAG, "----------------------------------------------------");
-    ESP_LOGI(TAG, "Firmware PN: %s", appIdent_GetFwIdentifier_cch());
-    ESP_LOGI(TAG, "Firmware Version: %s", appIdent_GetFwVersion_cch());
-    ESP_LOGI(TAG, "Firmware Desc: %s", appIdent_GetFwDescription_cch());
-    ESP_LOGI(TAG, "----------------------------------------------------");
-    /*if(NULL != ctrlParaHdl_xps)
-    {
-        ESP_ERROR_CHECK(paramif_Read_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
-        ESP_LOGI(TAG, "startups detected: %d", controlData_sts.startupCounter_u32);
-    }
-    else
-    {
-        ESP_LOGE(TAG, "startup counter not readable...");
-    }
-    ESP_LOGI(TAG, "----------------------------------------------------");*/
-}
-
-/**---------------------------------------------------------------------------------------
  * @brief     Initialize and configer the parameter handling
  * @author    S. Wink
  * @date      25. Jan. 2020
@@ -394,7 +345,7 @@ static void StartupAndApplicationIdent_vd(void)
 
     /* initialize and register Version information */
     CHECK_EXE(appIdent_Initialize_st());
-    PrintFirmwareIdent_vd();
+    appIdent_LogFirmwareIdent_vd(TAG);
 
     CHECK_EXE(paramif_InitializeAllocParameter_td(&controlAllocParam_st));
     controlAllocParam_st.length_u16 = sizeof(ctrlData_t);
