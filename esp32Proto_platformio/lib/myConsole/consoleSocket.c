@@ -101,8 +101,6 @@ esp_err_t consoleSocket_Initialize_st(socketServer_parameter_t *param_stp)
 {
     esp_err_t success_st = ESP_OK;
 
-    esp_log_level_set(TAG, ESP_LOG_DEBUG);
-
     ESP_LOGI(TAG, "initializing...");
     eventSocketError_ptrs = param_stp->eventSocketError_ptrs;
     socketServerEventGroup_sts = xEventGroupCreate();

@@ -15,7 +15,13 @@
 			"appident.h": "c",
 			"semphr.h": "c",
 			"controltask.h": "c",
-			"mqtt_client.h": "c"
+			"mqtt_client.h": "c",
+			"udplog.h": "c",
+			"devmgr.h": "c",
+			"logcfg.h": "c",
+			"wifiif.h": "c",
+			"tcpip_adapter.h": "c",
+			"wifictrl.h": "c"
 		}
 	}
 }

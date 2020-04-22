@@ -56,7 +56,8 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 static void ConnectWithStation_vd(void);
 static void CreateIpLink_vd(void);
-static void PrintReceivedIp_vd(system_event_t *event);
+static void PrintReceivedIp6_vd(system_event_t *event);
+static void PrintAndStoreIp_vd(system_event_t *event_stp);
 
 /***************************************************************************************/
 /* Local type definitions (enum, struct, union) */
@@ -106,6 +107,8 @@ static wifi_config_t stationWifiSettings_sts =
     },
 };
 
+static tcpip_adapter_ip_info_t ipInfo_sts;
+
 /***************************************************************************************/
 /* Global functions (unlimited visibility) */
 
@@ -117,6 +120,8 @@ esp_err_t wifiStation_Start_st(wifiIf_stationParam_t *params_stp)
     esp_err_t result_st = ESP_FAIL;
     bool exeResult_bol = true;
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+
+    memset(&ipInfo_sts, 0, sizeof(ipInfo_sts));
 
     tcpip_adapter_init();
     exeResult_bol &= CHECK_EXE(esp_wifi_init(&cfg));
@@ -173,7 +178,10 @@ uint32_t wifiStation_EventConverter_u32(system_event_t *event_stp)
             CreateIpLink_vd();
             break;
         case SYSTEM_EVENT_AP_STA_GOT_IP6:
-            PrintReceivedIp_vd(event_stp);
+            PrintReceivedIp6_vd(event_stp);
+            break;
+        case SYSTEM_EVENT_STA_GOT_IP:
+            PrintAndStoreIp_vd(event_stp);
             break;
         default:
             break;
@@ -206,6 +214,8 @@ esp_err_t wifiStation_Stop_st(void)
     exeResult_bol &= CHECK_EXE(esp_wifi_disconnect());
     exeResult_bol &= CHECK_EXE(esp_wifi_stop());
     exeResult_bol &= CHECK_EXE(esp_wifi_deinit());
+
+    memset(&ipInfo_sts, 0, sizeof(ipInfo_sts));
 
     if(true == exeResult_bol)
     {
@@ -248,11 +258,29 @@ static void CreateIpLink_vd(void)
  * @date      25. Jul. 2019
  * @param     event_stp     the received event
 *//*-----------------------------------------------------------------------------------*/
-static void PrintReceivedIp_vd(system_event_t *event_stp)
+static void PrintReceivedIp6_vd(system_event_t *event_stp)
 {
     char *ip6 = ip6addr_ntoa(&event_stp->event_info.got_ip6.ip6_info.ip);
 
     ESP_LOGI(TAG, "SYSTEM_EVENT_STA_GOT_IP6 event received...");
     ESP_LOGI(TAG, "IPv6: %s", ip6);
+}
+
+/**--------------------------------------------------------------------------------------
+ * @brief     Event function for wifi station successful got ip 
+ * @author    S. Wink
+ * @date      09. Apr. 2020
+ * @param     event_stp     the received event
+*//*-----------------------------------------------------------------------------------*/
+static void PrintAndStoreIp_vd(system_event_t *event_stp)
+{
+
+    memcpy(&ipInfo_sts, &event_stp->event_info.got_ip.ip_info, sizeof(ipInfo_sts));
+    //ip = ipaddr_ntoa(&event_stp->event_info.got_ip.ip_info.ip);
+    ESP_LOGI(TAG, "SYSTEM_EVENT_STA_GOT_IP event received...");
+    ESP_LOGI(TAG, "IPv4: %d:%d:%d:%d", ip4_addr1_16(&ipInfo_sts.ip), 
+                                        ip4_addr2_16(&ipInfo_sts.ip),
+                                        ip4_addr3_16(&ipInfo_sts.ip), 
+                                        ip4_addr4_16(&ipInfo_sts.ip));
 }
 

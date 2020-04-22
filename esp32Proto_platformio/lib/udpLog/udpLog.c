@@ -47,6 +47,18 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 #include "udpLog.h"
 
+// CHANGES TO THIS MODULE
+// add standard error handling with define and macro
+// add module parameter init function
+// who shall handle the init and load of the parameter ???
+// maybe add one additional module called udppara that takes care on the parameter handling
+// parameter:
+//  ip address of server
+//  port? always standard
+//  activated or deactivated? or off/serial/udp/both?
+//                                0   0x1    0x2  0x3
+//
+
 /****************************************************************************************/
 /* Local constant defines */
 

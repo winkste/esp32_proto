@@ -55,6 +55,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "wifiCtrl.h"
 #include "appIdent.h"
 #include "devmgr.h"
+#include "logcfg.h"
 
 /****************************************************************************************/
 /* Local constant defines */
@@ -137,7 +138,7 @@ esp_err_t controlTask_StartSystem_td(void)
     };
     devmgr_param_t devMgrParam_st;
 
-    esp_log_level_set("efuse", ESP_LOG_WARN);
+    logcfg_Configure_st(logcfg_WIFI);
 
     InitializeParameterHandling_vd();
 
@@ -291,7 +292,7 @@ static void StartFullService_vd(void)
 {
     ESP_LOGI(TAG, "WIFI_STATION received...");
     consoleSocket_Activate_vd();
-    //udpLog_Init_st( "192.168.178.25", 1337);
+    udpLog_Init_st("192.168.178.89", 1337);
     mqttdrv_StartMqttDemon_vd();
 }
 

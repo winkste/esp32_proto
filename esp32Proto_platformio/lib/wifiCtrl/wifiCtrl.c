@@ -186,12 +186,6 @@ esp_err_t wifiCtrl_Initialize_st(wifiIf_service_t *service_stp)
     paramif_allocParam_t stationAllocParam_st;
     paramif_allocParam_t modeAllocParam_st;
 
-    esp_log_level_set("phy_init", ESP_LOG_INFO);
-    esp_log_level_set("wifi", ESP_LOG_WARN);
-    esp_log_level_set("tcpip_adapter", ESP_LOG_INFO);
-    //esp_log_level_set("wifiStation", ESP_LOG_WARN);
-    //esp_log_level_set("wifiAp", ESP_LOG_WARN);
-    //esp_log_level_set("wifiCtrl", ESP_LOG_WARN);
 
     memcpy(&this_sst.service_st, service_stp, sizeof(this_sst.service_st));
     this_sst.connectRetries_u8 = 0U;
@@ -382,6 +376,24 @@ wifiCtrl_serviceHdl_t wifiIf_RegisterService_xp(wifiIf_service_t *service_stp)
     return(handle_xp);
 }
 
+/**---------------------------------------------------------------------------------------
+ * @brief     Get the actual ip adress from the wifi module
+*//*-----------------------------------------------------------------------------------*/
+uint32_t wifiCtrl_GetIpAdress_u32(char *ipAdr_cp)
+{
+    tcpip_adapter_ip_info_t ip_info;
+    uint32_t length_u32 = 0;
+    
+    CHECK_EXE(tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info));
+
+    length_u32 = sprintf(ipAdr_cp, "IPv4: %d:%d:%d:%d", ip4_addr1_16(&ip_info.ip), 
+                                        ip4_addr2_16(&ip_info.ip),
+                                        ip4_addr3_16(&ip_info.ip), 
+                                        ip4_addr4_16(&ip_info.ip));
+    
+    return(length_u32);
+}
+
 /***************************************************************************************/
 /* Local functions: */
 
@@ -534,6 +546,13 @@ static void Task_vd(void *pvParameters)
                 ESP_LOGI(TAG, "executed wifi station connect callback function...");
                 xTimerStop(this_sst.timer_xp, 0);
                 SetAndCheckState_td(STATE_CONNECTED);
+
+                tcpip_adapter_ip_info_t ip_info;
+                (void)tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip_info);
+                ESP_LOGI(TAG, "IPv4: %d:%d:%d:%d", ip4_addr1_16(&ip_info.ip), 
+                                        ip4_addr2_16(&ip_info.ip),
+                                        ip4_addr3_16(&ip_info.ip), 
+                                        ip4_addr4_16(&ip_info.ip));
             }
         }
         if(0 != (uxBits_st & wifiIf_EVENT_STATION_DISCONNECTED))

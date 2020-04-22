@@ -160,7 +160,7 @@ static esp_err_t OnSubsReceiveHandler_st(mqttif_msg_t *msg_stp);
 //static int32_t CmdHandlerSensor_s32(int32_t argc_s32, char** argv);
 
 static esp_err_t RegisterBleSettingsCommands_st(void);
-static int32_t CmdHandlerBleSettings_s32(int32_t argc_s32, char** argv);
+//static int32_t CmdHandlerBleSettings_s32(int32_t argc_s32, char** argv);
 static int32_t CmdHandlerBleSettings2_s32(int32_t argc_s32, char** argv, 
                                             FILE *retStream_xp);
 
@@ -261,8 +261,6 @@ esp_err_t mijasens_Initialize_st(mijasens_param_t *param_stp)
     bool exeResult_bol = true;
     bleDrv_param_t params_st;
 
-
-    esp_log_level_set(TAG, ESP_LOG_DEBUG);
 
     ESP_LOGD(TAG, "initialization started...");
     if(NULL != param_stp)
@@ -475,7 +473,7 @@ static esp_err_t RegisterBleSettingsCommands_st(void)
  * @param     argv      pointer to argument list
  * @return    not equal to zero if error detected
 *//*-----------------------------------------------------------------------------------*/
-static int32_t CmdHandlerBleSettings_s32(int32_t argc_s32, char** argv)
+/*static int32_t CmdHandlerBleSettings_s32(int32_t argc_s32, char** argv)
 {
     int32_t retValue_s32 = 1;
     scanParam_t para_st;
@@ -523,7 +521,7 @@ static int32_t CmdHandlerBleSettings_s32(int32_t argc_s32, char** argv)
     }
     
     return(retValue_s32);
-}
+}*/
 
 /**--------------------------------------------------------------------------------------
  * @brief     Handler for console command bluetooth settings
