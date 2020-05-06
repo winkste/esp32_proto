@@ -55,6 +55,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "wifiCtrl.h"
 #include "appIdent.h"
 #include "devmgr.h"
+#include "logcfg.h"
 
 /****************************************************************************************/
 /* Local constant defines */
@@ -76,7 +77,6 @@ typedef struct ctrlData_tag
 /* Local functions prototypes: */
 static void Task_vd(void *param_vdp);
 static void RegisterCommands_vd(void);
-static int CommandInfoHandler_i(int argc, char** argv);
 static int CommandRebootHandler_i(int argc, char** argv);
 static void ServiceCbWifiStationConn_vd(void);
 static void ServiceCbWifiApClientConn_vd(void);
@@ -84,7 +84,6 @@ static void ServiceCbWifiDisconnected_vd(void);
 static void StartFullService_vd(void);
 static void StartSelfServicesOnly_vd(void);
 static void SocketErrorCb_vd(void);
-static void PrintFirmwareIdent_vd(void);
 
 static void InitializeParameterHandling_vd(void);
 static void StartupAndApplicationIdent_vd(void);
@@ -139,7 +138,7 @@ esp_err_t controlTask_StartSystem_td(void)
     };
     devmgr_param_t devMgrParam_st;
 
-    esp_log_level_set("efuse", ESP_LOG_WARN);
+    CHECK_EXE(logcfg_Configure_st(logcfg_WIFI));
 
     InitializeParameterHandling_vd();
 
@@ -226,13 +225,6 @@ static void Task_vd(void *param_vdp)
 *//*-----------------------------------------------------------------------------------*/
 static void RegisterCommands_vd(void)
 {
-    const myConsole_cmd_t infoCmd_stc =
-    {
-        .command = "info",
-        .help = "Get control task information log",
-        .func = &CommandInfoHandler_i,
-    };
-
     const myConsole_cmd_t rebootCommand_stc =
     {
         .command = "boot",
@@ -240,23 +232,7 @@ static void RegisterCommands_vd(void)
         .func = &CommandRebootHandler_i,
     };
 
-    ESP_ERROR_CHECK(myConsole_CmdRegister_td(&infoCmd_stc));
     ESP_ERROR_CHECK(myConsole_CmdRegister_td(&rebootCommand_stc));
-}
-
-/**---------------------------------------------------------------------------------------
- * @brief     Handler for console command to printout control information
- * @author    S. Wink
- * @date      24. Jan. 2019
- * @param     argc  count of argument list
- * @param     argv  pointer to argument list
- * @return    not equal to zero if error detected
-*//*-----------------------------------------------------------------------------------*/
-static int CommandInfoHandler_i(int argc, char** argv)
-{
-    ESP_LOGI(TAG, "information request command received");
-    PrintFirmwareIdent_vd();
-    return(0);
 }
 
 /**---------------------------------------------------------------------------------------
@@ -305,6 +281,8 @@ static void ServiceCbWifiDisconnected_vd(void)
 {
     ESP_LOGI(TAG, "callback ServiceCbWifiDisconnected_vd...");
     xEventGroupSetBits(controlEventGroup_sts, WIFI_DISCONN);
+    consoleSocket_Deactivate_vd();
+    udpLog_Free_st();
 }
 
 /**---------------------------------------------------------------------------------------
@@ -314,9 +292,16 @@ static void ServiceCbWifiDisconnected_vd(void)
 *//*-----------------------------------------------------------------------------------*/
 static void StartFullService_vd(void)
 {
+    udpLog_param_t logServer_st;
+
     ESP_LOGI(TAG, "WIFI_STATION received...");
     consoleSocket_Activate_vd();
-    //udpLog_Init_st( "192.168.178.25", 1337);
+
+    CHECK_EXE(udpLog_InitializeParameter_st(&logServer_st));
+    logServer_st.ipAddr_cchp = "192.168.178.89";
+    logServer_st.conPort_u32 = 1337;
+    CHECK_EXE(udpLog_Initialize_st(&logServer_st));
+
     mqttdrv_StartMqttDemon_vd();
 }
 
@@ -329,9 +314,15 @@ static void StartFullService_vd(void)
 *//*-----------------------------------------------------------------------------------*/
 static void StartSelfServicesOnly_vd(void)
 {
+    udpLog_param_t logServer_st;
+
     ESP_LOGI(TAG, "WIFI_AP_CLIENT received...");
     consoleSocket_Activate_vd();
-    //udpLog_Init_st( "192.168.178.25", 1337);
+    
+    CHECK_EXE(udpLog_InitializeParameter_st(&logServer_st));
+    logServer_st.ipAddr_cchp = "192.168.4.2";
+    logServer_st.conPort_u32 = 1337;
+    CHECK_EXE(udpLog_Initialize_st(&logServer_st));
 }
 
 /**---------------------------------------------------------------------------------------
@@ -343,30 +334,6 @@ static void SocketErrorCb_vd(void)
 {
     ESP_LOGI(TAG, "callback SocketErrorCb_vd...");
     xEventGroupSetBits(controlEventGroup_sts, SOCKET_ERROR);
-}
-
-/**---------------------------------------------------------------------------------------
- * @brief     Print the firmware identification to serial
- * @author    S. Wink
- * @date      06. Sep. 2019
-*//*-----------------------------------------------------------------------------------*/
-static void PrintFirmwareIdent_vd(void)
-{
-    ESP_LOGI(TAG, "----------------------------------------------------");
-    ESP_LOGI(TAG, "Firmware PN: %s", appIdent_GetFwIdentifier_cch());
-    ESP_LOGI(TAG, "Firmware Version: %s", appIdent_GetFwVersion_cch());
-    ESP_LOGI(TAG, "Firmware Desc: %s", appIdent_GetFwDescription_cch());
-    ESP_LOGI(TAG, "----------------------------------------------------");
-    /*if(NULL != ctrlParaHdl_xps)
-    {
-        ESP_ERROR_CHECK(paramif_Read_td(ctrlParaHdl_xps, (uint8_t *) &controlData_sts));
-        ESP_LOGI(TAG, "startups detected: %d", controlData_sts.startupCounter_u32);
-    }
-    else
-    {
-        ESP_LOGE(TAG, "startup counter not readable...");
-    }
-    ESP_LOGI(TAG, "----------------------------------------------------");*/
 }
 
 /**---------------------------------------------------------------------------------------
@@ -394,7 +361,7 @@ static void StartupAndApplicationIdent_vd(void)
 
     /* initialize and register Version information */
     CHECK_EXE(appIdent_Initialize_st());
-    PrintFirmwareIdent_vd();
+    appIdent_LogFirmwareIdent_vd(TAG);
 
     CHECK_EXE(paramif_InitializeAllocParameter_td(&controlAllocParam_st));
     controlAllocParam_st.length_u16 = sizeof(ctrlData_t);

@@ -47,6 +47,7 @@
 
 #include "appIdent.h"
 #include "utils.h"
+#include "wifiCtrl.h"
 
 /****************************************************************************************/
 /* Local constant defines */
@@ -55,6 +56,7 @@
 #define MQTT_PUB_FW_VERSION       "gen/fwversion" //firmware version
 #define MQTT_PUB_FW_DESC          "gen/desc" //firmware description
 #define MQTT_PUB_HEALTH           "health/tic" //health counter of application
+#define MQTT_PUB_IP               "gen/ip" //ip adress
 
 #define MQTT_PUB_DEV_ROOM         "gen/room" //firmware room
 #define MQTT_PUB_CAP              "gen/cap"  // send capability
@@ -64,7 +66,7 @@
 #define MQTT_SUBSCRIPTIONS_NUM    2U
 #define MAX_PUB_WAIT              10000
 
-#define MODULE_TAG                  "gendev"
+#define MODULE_TAG                "gendev"
 
 /****************************************************************************************/
 /* Local function like makros */
@@ -163,8 +165,6 @@ esp_err_t gendev_Initialize_st(gendev_param_t *param_stp)
 {
     esp_err_t result_st = ESP_FAIL;
 
-
-    esp_log_level_set(TAG, ESP_LOG_DEBUG);
 
     ESP_LOGD(TAG, "initialization started...");
     if(NULL != param_stp)
@@ -361,6 +361,7 @@ static void SendInfoRecord_vd(void)
     ESP_LOGD(TAG, "topic:%s, data:%s", this_sst.pubMsg_st.topic_chp, 
                 this_sst.pubMsg_st.data_chp);
     exeResult_bol &= CHECK_EXE(publisher_td(&this_sst.pubMsg_st, MAX_PUB_WAIT));
+    
     ESP_LOGD(TAG, "send firmware version...");
     if(true == exeResult_bol)
     {
@@ -386,6 +387,19 @@ static void SendInfoRecord_vd(void)
         this_sst.pubMsg_st.dataLen_u32 =
             sprintf(this_sst.pubMsg_st.data_chp, "Firmware Description: %s",
                         appIdent_GetFwDescription_cch());
+        ESP_LOGD(TAG, "topic:%s, data:%s", this_sst.pubMsg_st.topic_chp,
+                    this_sst.pubMsg_st.data_chp);
+        CHECK_EXE(publisher_td(&this_sst.pubMsg_st, MAX_PUB_WAIT));
+    }
+
+    ESP_LOGD(TAG, "send ip adress ...");
+    if(true == exeResult_bol)
+    {
+        utils_BuildSendTopic_chp(this_sst.param_st.deviceName_chp,
+                                    this_sst.param_st.id_u8, MQTT_PUB_IP,
+                                    this_sst.pubMsg_st.topic_chp);
+        this_sst.pubMsg_st.topicLen_u32 = strlen(this_sst.pubMsg_st.topic_chp);
+        this_sst.pubMsg_st.dataLen_u32 = wifiCtrl_GetIpAdress_u32(this_sst.pubMsg_st.data_chp);
         ESP_LOGD(TAG, "topic:%s, data:%s", this_sst.pubMsg_st.topic_chp,
                     this_sst.pubMsg_st.data_chp);
         CHECK_EXE(publisher_td(&this_sst.pubMsg_st, MAX_PUB_WAIT));

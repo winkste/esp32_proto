@@ -1,14 +1,15 @@
 /*****************************************************************************************
-* FILENAME :        controlTask.h
+* FILENAME :        logcfg.h
 *
-* DESCRIPTION :
-*       Header file for
+* SHORT DESCRIPTION:
+*   Header file for logging configuration module.
 *
-* Date: 24. January 2019
+* DETAILED DESCRIPTION :
+*       
 *
-* NOTES :
+* AUTHOR :    Stephan Wink        CREATED ON :    31. Mar. 2020
 *
-* Copyright (c) [2019] [Stephan Wink]
+* Copyright (c) [2020] [Stephan Wink]
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -28,17 +29,22 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 * SOFTWARE.
 *****************************************************************************************/
-#ifndef UDPLOG_H_
-#define UDPLOG_H_
+#ifndef LOGCFG_H
+#define LOGCFG_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 /****************************************************************************************/
 /* Imported header files: */
 
-#include "esp_system.h"
+#include "stdint.h"
+#include "stdbool.h"
+#include "stddef.h"
+#include "string.h"
 #include "esp_log.h"
 #include "esp_err.h"
-
-#include <string.h>
 
 /****************************************************************************************/
 /* Global constant defines: */
@@ -48,45 +54,30 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
-
-typedef struct udpLog_param_tag
+typedef enum logcfg_logModuls_tag
 {
-    const char *ipAddr_cchp;
-    uint32_t conPort_u32;
-}udpLog_param_t;
+    logcfg_WIFI,
+    logcfg_DEVICES,
+    logcfg_MQTT,
+    logcfg_ALL,
+    logcfg_NONE
+}logcfg_logModuls_t;
 
 /****************************************************************************************/
 /* Global function definitions: */
 
-/**---------------------------------------------------------------------------------------
- * @brief     Initializes the initialization structure of the udplog module
- * @author    S. Wink
- * @date      24. Apr. 2020
- * @param     param_stp     parameter initialization structure
- * @return    ESP_OK in case of success, else error code
+/**--------------------------------------------------------------------------------------
+ * @brief     configuration of the logging 
+ * @param[in]   cfg_en  log configuration
+ * @return    ESP_OK in case of success, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t udpLog_InitializeParameter_st(udpLog_param_t *param_stp);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Initialization of UDP logging
- * @author    S. Wink
- * @date      24. Mar. 2019
- * @param     param_stp     parameter initialization structure
- * @return    ESP_OK in case of success, else error code
-*//*-----------------------------------------------------------------------------------*/
-extern esp_err_t udpLog_Initialize_st(udpLog_param_t *param_stp);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Function to switch back to original logging
- * @author    S. Wink
- * @date      24. Mar. 2019
- * @param     list_st       variable argument list
- * @return    ESP_OK in case of success, else error code
-*//*-----------------------------------------------------------------------------------*/
-extern esp_err_t udpLog_Free_st(void);
+extern esp_err_t logcfg_Configure_st(logcfg_logModuls_t cfg_en);
 
 /****************************************************************************************/
 /* Global data definitions: */
+
+#ifdef __cplusplus
+}
 #endif
 
-
+#endif //BASIC_H

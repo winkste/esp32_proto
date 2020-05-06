@@ -33,6 +33,7 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /* Imported header files: */
 
 #include "wifiIf.h"
+#include "stdint.h"
 
 /****************************************************************************************/
 /* Global constant defines: */
@@ -69,7 +70,7 @@ extern esp_err_t wifiCtrl_Start_st(void);
  * @brief     Function to stop the wifi 
  * @author    S. Wink
  * @date      24. Jan. 2019
-  * @return    ESP_OK if start was successful, else ESP_FAIL
+ * @return    ESP_OK if start was successful, else ESP_FAIL
 *//*-----------------------------------------------------------------------------------*/
 extern esp_err_t wifiCtrl_Stop_st(void);
 
@@ -79,6 +80,16 @@ extern esp_err_t wifiCtrl_Stop_st(void);
  * @date      24. Jan. 2019
 *//*-----------------------------------------------------------------------------------*/
 extern void wifiCtrl_RegisterWifiCommands(void);
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Function to get the received IP address
+ * @author    S. Wink
+ * @date      20. Apr. 2020
+* @param     ipAdr_cp     pointer to charactor storage location
+* @return    length of ip string, zero if not available
+*//*-----------------------------------------------------------------------------------*/
+extern uint32_t wifiCtrl_GetIpAdress_u32(char *ipAdr_cp);
+
 /****************************************************************************************/
 /* Global data definitions: */
 

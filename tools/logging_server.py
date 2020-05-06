@@ -21,12 +21,17 @@ import datetime
 UDP_IP = "0.0.0.0"
 UDP_PORT = 1337
 
-sock = socket.socket( socket.AF_INET, socket.SOCK_DGRAM )
-sock.bind( (UDP_IP, UDP_PORT) )
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP, UDP_PORT))
+hostname = socket.gethostname()    
+IPAddr = socket.gethostbyname(hostname)
 
 print("+============================+")
 print("|  ESP32 UDP Logging Server  |")
 print("+============================+")
+print("")
+print("Your Computer Name is:" + hostname)    
+print("Your Computer IP Address is:" + IPAddr)
 print("")
 
 while True:

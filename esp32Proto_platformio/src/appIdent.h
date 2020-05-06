@@ -84,6 +84,14 @@ extern const char * appIdent_GetFwVersion_cch(void);
 *//*-----------------------------------------------------------------------------------*/
 extern const char * appIdent_GetFwDescription_cch(void);
 
+/**---------------------------------------------------------------------------------------
+ * @brief     Print the firmware identification to the logging console
+ * @author    S. Wink
+ * @date      06. Sep. 2019
+ * @param     tag_cp    module name of the requested module
+*//*-----------------------------------------------------------------------------------*/
+extern void appIdent_LogFirmwareIdent_vd(const char *tag_cp);
+
 #endif
 /****************************************************************************************/
 

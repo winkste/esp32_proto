@@ -101,7 +101,6 @@ esp_err_t paramif_Initialize_td(paramif_param_t *param_stp)
     esp_err_t err_st = ESP_FAIL;
     uint8_t idx_u8 = 0U;
 
-    esp_log_level_set("nvs", ESP_LOG_INFO);
 
     if(STATE_NOT_INITIALIZED == moduleState_ens)
     {

@@ -36,6 +36,8 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 
 #include "appIdent.h"
 
+#include <stdio.h>
+
 #include "stdint.h"
 #include "esp_log.h"
 #include "esp_err.h"
@@ -55,14 +57,15 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Local functions prototypes: */
 static void RegisterCommands_vd(void);
-static int32_t cmdVersionHandler_s32(int32_t argc_s32, char** argv_cpp);
+static int32_t cmdVersionHandler2_s32(int32_t argc_s32, char** argv_cpp, 
+                                            FILE *retStream_xp);
 
 /****************************************************************************************/
 /* Local variables: */
 
-static const char *TAG              = "myVersion";
-static const char *FW_IDENTIFIER    = FWIDENT_STR;//= "00005TC"; // Firmware identification
-static const char *FW_VERSION       = VERSION_STR; //= "004";     // Firmware Version
+static const char *TAG              = "appIdent";
+static const char *FW_IDENTIFIER    = FWIDENT_STR;  // Firmware identification
+static const char *FW_VERSION       = VERSION_STR;  // Firmware Version
 static const char *FW_DESCRIPTION   = "prototype firmware for esp32";
 
 /****************************************************************************************/
@@ -101,6 +104,18 @@ const char * appIdent_GetFwDescription_cch(void)
     return(FW_DESCRIPTION);
 }
 
+/**---------------------------------------------------------------------------------------
+ * @brief     Print the firmware identification to serial
+*//*-----------------------------------------------------------------------------------*/
+void appIdent_LogFirmwareIdent_vd(const char *tag_cp)
+{
+    ESP_LOGI(tag_cp, "----------------------------------------------------");
+    ESP_LOGI(tag_cp, "Firmware PN: %s", appIdent_GetFwIdentifier_cch());
+    ESP_LOGI(tag_cp, "Firmware Version: %s", appIdent_GetFwVersion_cch());
+    ESP_LOGI(tag_cp, "Firmware Desc: %s", appIdent_GetFwDescription_cch());
+    ESP_LOGI(tag_cp, "----------------------------------------------------");
+}
+
 /****************************************************************************************/
 /* Local functions: */
 
@@ -114,28 +129,31 @@ static void RegisterCommands_vd(void)
         const myConsole_cmd_t versionCmd = {
         .command = "ver",
         .help = "Get version information",
-        .func = &cmdVersionHandler_s32,
+        .func2 = &cmdVersionHandler2_s32
     };
 
     ESP_ERROR_CHECK(myConsole_CmdRegister_td(&versionCmd));
 }
 
 /**---------------------------------------------------------------------------------------
- * @brief     Handler for console command to printout control information
+ * @brief     Handler for console command to printout control information to File stream
  * @author    S. Wink
  * @date      24. Jan. 2019
  * @param     argc_s32  count of argument list
  * @param     argv_cpp  pointer to argument list
+ * @param     retStream_xp  stream to print return information to
  * @return    not equal to zero if error detected
 *//*-----------------------------------------------------------------------------------*/
-static int32_t cmdVersionHandler_s32(int32_t argc_s32, char** argv_cpp)
+static int32_t cmdVersionHandler2_s32(int32_t argc_s32, char** argv_cpp, 
+                                            FILE *retStream_xp)
 {
-    ESP_LOGI(TAG, "version request command received");
+    fprintf(retStream_xp, "Firmware Partnumber: %s\n", FW_IDENTIFIER);
+    fprintf(retStream_xp, "Firmware Version: %s\n", FW_VERSION);
+    fprintf(retStream_xp, "Firmware Description: %s\n", FW_DESCRIPTION);
+    fflush(retStream_xp);
 
-    ESP_LOGI(TAG, "Firmware Partnumber: %s", FW_IDENTIFIER);
-    ESP_LOGI(TAG, "Firmware Version: %s", FW_VERSION);
-    ESP_LOGI(TAG, "Firmware Description: %s", FW_DESCRIPTION);
-
+    appIdent_LogFirmwareIdent_vd(TAG);
+    
     return (0);
 }
 
