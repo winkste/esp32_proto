@@ -69,7 +69,7 @@ static void SetLevelToDevault(void);
 *//*-----------------------------------------------------------------------------------*/
 esp_err_t logcfg_Configure_st(logcfg_logModuls_t cfg_en)
 {
-    esp_err_t exeResult_st = ESP_FAIL;
+    esp_err_t exeResult_st = ESP_OK;
 
     SetLevelToDevault();
     switch(cfg_en)
@@ -81,6 +81,7 @@ esp_err_t logcfg_Configure_st(logcfg_logModuls_t cfg_en)
             esp_log_level_set("wifiStation", ESP_LOG_DEBUG);
             esp_log_level_set("wifiAp", ESP_LOG_DEBUG);
             esp_log_level_set("wifiCtrl", ESP_LOG_DEBUG);
+            esp_log_level_set("udplog", ESP_LOG_DEBUG);
             break;
         case logcfg_DEVICES:
             esp_log_level_set("gendev", ESP_LOG_DEBUG);
@@ -93,6 +94,7 @@ esp_err_t logcfg_Configure_st(logcfg_logModuls_t cfg_en)
         case logcfg_ALL:
             break;
         default:
+            exeResult_st = ESP_FAIL;
             break;
     }
 

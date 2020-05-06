@@ -138,7 +138,7 @@ esp_err_t controlTask_StartSystem_td(void)
     };
     devmgr_param_t devMgrParam_st;
 
-    logcfg_Configure_st(logcfg_WIFI);
+    CHECK_EXE(logcfg_Configure_st(logcfg_WIFI));
 
     InitializeParameterHandling_vd();
 
@@ -281,6 +281,8 @@ static void ServiceCbWifiDisconnected_vd(void)
 {
     ESP_LOGI(TAG, "callback ServiceCbWifiDisconnected_vd...");
     xEventGroupSetBits(controlEventGroup_sts, WIFI_DISCONN);
+    consoleSocket_Deactivate_vd();
+    udpLog_Free_st();
 }
 
 /**---------------------------------------------------------------------------------------
@@ -290,9 +292,16 @@ static void ServiceCbWifiDisconnected_vd(void)
 *//*-----------------------------------------------------------------------------------*/
 static void StartFullService_vd(void)
 {
+    udpLog_param_t logServer_st;
+
     ESP_LOGI(TAG, "WIFI_STATION received...");
     consoleSocket_Activate_vd();
-    udpLog_Init_st("192.168.178.89", 1337);
+
+    CHECK_EXE(udpLog_InitializeParameter_st(&logServer_st));
+    logServer_st.ipAddr_cchp = "192.168.178.89";
+    logServer_st.conPort_u32 = 1337;
+    CHECK_EXE(udpLog_Initialize_st(&logServer_st));
+
     mqttdrv_StartMqttDemon_vd();
 }
 
@@ -305,9 +314,15 @@ static void StartFullService_vd(void)
 *//*-----------------------------------------------------------------------------------*/
 static void StartSelfServicesOnly_vd(void)
 {
+    udpLog_param_t logServer_st;
+
     ESP_LOGI(TAG, "WIFI_AP_CLIENT received...");
     consoleSocket_Activate_vd();
-    //udpLog_Init_st( "192.168.178.25", 1337);
+    
+    CHECK_EXE(udpLog_InitializeParameter_st(&logServer_st));
+    logServer_st.ipAddr_cchp = "192.168.4.2";
+    logServer_st.conPort_u32 = 1337;
+    CHECK_EXE(udpLog_Initialize_st(&logServer_st));
 }
 
 /**---------------------------------------------------------------------------------------

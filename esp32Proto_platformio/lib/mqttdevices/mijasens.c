@@ -142,7 +142,6 @@ typedef struct moduleData_tag
     QueueHandle_t queue_xp;
     TimerHandle_t cycleTimer_st;
     paramif_objHdl_t scanParam_xp;
-    paramif_objHdl_t sensTable_xp;
 }objectData_t;
 
 /****************************************************************************************/

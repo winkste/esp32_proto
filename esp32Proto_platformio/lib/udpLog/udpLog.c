@@ -33,6 +33,8 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Include Interfaces */
 
+#include "udpLog.h"
+
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_err.h"
@@ -45,11 +47,9 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 #include "lwip/netdb.h"
 #include "lwip/dns.h"
 
-#include "udpLog.h"
+#include "utils.h"
 
 // CHANGES TO THIS MODULE
-// add standard error handling with define and macro
-// add module parameter init function
 // who shall handle the init and load of the parameter ???
 // maybe add one additional module called udppara that takes care on the parameter handling
 // parameter:
@@ -63,11 +63,15 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /* Local constant defines */
 
 #ifndef UDP_LOGGING_MAX_PAYLOAD_LEN
-#define UDP_LOGGING_MAX_PAYLOAD_LEN 2048
+    #define UDP_LOGGING_MAX_PAYLOAD_LEN     2048
 #endif
+
+#define MODULE_TAG                      "udpLog"
 
 /****************************************************************************************/
 /* Local function like makros */
+
+#define CHECK_EXE(arg) utils_CheckAndLogExecution_bol(MODULE_TAG, arg, __LINE__)
 
 /****************************************************************************************/
 /* Local type definitions (enum, struct, union) */
@@ -79,6 +83,16 @@ typedef enum moduleState_tag
     STATE_ACTIVATED,
 }moduleState_t;
 
+typedef struct moduleData_tag
+{
+    udpLog_param_t param_st;
+    moduleState_t state_en;
+    int32_t udpSocket_s32;
+    struct sockaddr_in sockAddrIn_st;
+    uint8_t buffer_u8[UDP_LOGGING_MAX_PAYLOAD_LEN];
+    vprintf_like_t lastLogFunc_fp;
+}moduleData_t;
+
 /****************************************************************************************/
 /* Local functions prototypes: */
 static int32_t GetSocketErrorCode_s32(int32_t socket_s32);
@@ -87,105 +101,127 @@ static int32_t UdpLoggingVPrintf_s32( const char *str_cchp, va_list list_st);
 
 /****************************************************************************************/
 /* Local variables: */
-static int32_t udpSocket_s32s = 0;
-static struct sockaddr_in _sts;
-static uint8_t buf_u8s[UDP_LOGGING_MAX_PAYLOAD_LEN];
-static vprintf_like_t lastLogFunc_fps;
-static const char *TAG = "udpLog";
-static moduleState_t moduleState_ens = STATE_NOT_INITIALIZED;
+static const char *TAG = MODULE_TAG;
+static const char *DEFAULT_IP = "192.168.178.89";
+static uint32_t DEFAULT_PORT = 1337;
 
-
+static moduleData_t this_sst =
+{
+    .state_en = STATE_NOT_INITIALIZED
+};
 
 /****************************************************************************************/
 /* Global functions (unlimited visibility) */
 
 /**---------------------------------------------------------------------------------------
- * @brief     Function to switch back to original logging
+ * @brief     Initializes the initialization structure of the udplog module
 *//*-----------------------------------------------------------------------------------*/
-void udpLog_Free_vd(void)
+esp_err_t udpLog_InitializeParameter_st(udpLog_param_t *param_stp)
 {
-	esp_err_t err_st = ESP_OK;
+    esp_err_t result_st = ESP_FAIL;
 
-    if(STATE_INITIALIZED != moduleState_ens)
+    if(NULL != param_stp)
     {
-        err_st = ESP_FAIL;
-    }
-    else
-    {
-        moduleState_ens = STATE_NOT_INITIALIZED;
-        if(NULL != lastLogFunc_fps)
-        {
-            esp_log_set_vprintf(lastLogFunc_fps);
-        }
-        err_st = shutdown(udpSocket_s32s, 2);
-        if(ESP_OK == err_st)
-        {
-            ESP_LOGI(TAG, "UDP socket shutdown!");
-        }
-        else
-        {
-            ESP_LOGI(TAG, "Shutting-down UDP socket failed: %d!\n", err_st);
-        }
+        
+        param_stp->ipAddr_cchp = DEFAULT_IP;
+        param_stp->conPort_u32 = DEFAULT_PORT;
 
-        err_st = close(udpSocket_s32s);
-        if(ESP_OK == err_st)
-        {
-            ESP_LOGI(TAG, "UDP socket closed!");
-        }else
-        {
-            ESP_LOGI(TAG, "Closing UDP socket failed: %d!", err_st);
-        }
-        udpSocket_s32s = 0;
+        
+
+        result_st = ESP_OK;
     }
+
+    return(result_st);
 }
-
 /**---------------------------------------------------------------------------------------
  * @brief     Initialization of UDP logging
 *//*-----------------------------------------------------------------------------------*/
-esp_err_t udpLog_Init_st(const char *ipAddr_cchp, unsigned long port)
+esp_err_t udpLog_Initialize_st(udpLog_param_t *param_stp)
 {
 	struct timeval sendTout_st = {1,0};
 	uint32_t ipAddrBytes_s32;
-	esp_err_t err_st = ESP_OK;
+	esp_err_t result_st = ESP_OK;
+    bool exeResult_bol = true;
 
-	if(STATE_NOT_INITIALIZED != moduleState_ens)
+	if((STATE_NOT_INITIALIZED != this_sst.state_en) || (NULL == param_stp))
 	{
-	    err_st = ESP_FAIL;
+	    exeResult_bol = false;
 	}
 	else
 	{
-        udpSocket_s32s = 0;
-        ESP_LOGI(TAG, "initializing udp logging...");
-        udpSocket_s32s = socket(AF_INET, SOCK_DGRAM, 0);
+        memset(&this_sst, 0, sizeof(this_sst));
+        memcpy(&this_sst.param_st, param_stp, sizeof(this_sst.param_st));
 
-        if(udpSocket_s32s < 0)
+        ESP_LOGI(TAG, "initializing udp logging...");
+        this_sst.udpSocket_s32 = socket(AF_INET, SOCK_DGRAM, 0);
+
+        if(this_sst.udpSocket_s32 < 0)
         {
            ESP_LOGE(TAG, "Cannot open socket!");
-           err_st = ESP_FAIL;
+           exeResult_bol = false;
         }
         else
         {
-            inet_aton(ipAddr_cchp, &ipAddrBytes_s32);
+            inet_aton(this_sst.param_st.ipAddr_cchp, &ipAddrBytes_s32);
             ESP_LOGI(TAG, "Logging to 0x%x", ipAddrBytes_s32);
 
-            memset(&_sts, 0, sizeof(_sts));
-            _sts.sin_family = AF_INET;
-            _sts.sin_port = htons( port );
-            _sts.sin_addr.s_addr = ipAddrBytes_s32;
+            memset(&this_sst.sockAddrIn_st, 0, sizeof(this_sst.sockAddrIn_st));
+            this_sst.sockAddrIn_st.sin_family = AF_INET;
+            this_sst.sockAddrIn_st.sin_port = htons(this_sst.param_st.conPort_u32);
+            this_sst.sockAddrIn_st.sin_addr.s_addr = ipAddrBytes_s32;
 
-            err_st = setsockopt(udpSocket_s32s, SOL_SOCKET, SO_SNDTIMEO,
-                                    (const char *)&sendTout_st, sizeof(sendTout_st));
-            if (ESP_OK != err_st)
-            {
-               ESP_LOGE(TAG, "Failed to set SO_SNDTIMEO. Error %d", err_st);
-            }
+            exeResult_bol &= CHECK_EXE(setsockopt(this_sst.udpSocket_s32, 
+                                                    SOL_SOCKET, SO_SNDTIMEO,
+                                                    (const char *)&sendTout_st, 
+                                                    sizeof(sendTout_st)));
 
-            lastLogFunc_fps = esp_log_set_vprintf(UdpLoggingVPrintf_s32);
-            moduleState_ens = STATE_INITIALIZED;
+            this_sst.lastLogFunc_fp = esp_log_set_vprintf(UdpLoggingVPrintf_s32);
+            this_sst.state_en = STATE_INITIALIZED;
         }
 	}
 
-	return(err_st);
+    if(true == exeResult_bol)
+    {
+        result_st = ESP_OK;
+        this_sst.state_en = STATE_INITIALIZED;
+    }
+
+	return(result_st);
+}
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Function to switch back to original logging
+*//*-----------------------------------------------------------------------------------*/
+esp_err_t udpLog_Free_st(void)
+{
+    esp_err_t result_st = ESP_OK;
+    bool exeResult_bol = true;
+
+    if(STATE_INITIALIZED != this_sst.state_en)
+    {
+        exeResult_bol = false;
+    }
+    else
+    {
+        // force reset of module here, independent from later uninit errors
+        this_sst.state_en = STATE_NOT_INITIALIZED;
+
+        if(NULL != this_sst.lastLogFunc_fp)
+        {
+            esp_log_set_vprintf(this_sst.lastLogFunc_fp);
+        }
+        exeResult_bol &= CHECK_EXE(shutdown(this_sst.udpSocket_s32, 2));
+
+        exeResult_bol &= CHECK_EXE(close(this_sst.udpSocket_s32));
+        this_sst.udpSocket_s32 = 0;
+    }
+
+    if(true == exeResult_bol)
+    {
+        result_st = ESP_OK;
+    }
+
+	return(result_st);
 }
 
 /****************************************************************************************/
@@ -247,14 +283,15 @@ static int32_t UdpLoggingVPrintf_s32( const char *str_cchp, va_list list_st)
     taskName_ch[15] = 0;
     if (0 != strncmp(taskName_ch, "tiT", 16))
     {
-        length_s32 = vsprintf((char*)buf_u8s, str_cchp, list_st);
-        err_s32 = sendto(udpSocket_s32s, buf_u8s, length_s32, 0,
-                            (struct sockaddr *)&_sts, sizeof(_sts));
+        length_s32 = vsprintf((char*)this_sst.buffer_u8, str_cchp, list_st);
+        err_s32 = sendto(this_sst.udpSocket_s32, this_sst.buffer_u8, length_s32, 0,
+                            (struct sockaddr *)&this_sst.sockAddrIn_st, 
+                            sizeof(this_sst.sockAddrIn_st));
         if(err_s32 < 0)
         {
-            ShowSocketErrorReason_s32(udpSocket_s32s);
+            ShowSocketErrorReason_s32(this_sst.udpSocket_s32);
             vprintf("\nFreeing UDP Logging. sendto failed!\n", list_st);
-            udpLog_Free_vd();
+            udpLog_Free_st();
             return vprintf("UDP Logging freed!\n\n", list_st);
         }
     }

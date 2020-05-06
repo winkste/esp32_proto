@@ -49,27 +49,41 @@ vAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 /****************************************************************************************/
 /* Global type definitions (enum (en), struct (st), union (un), typedef (tx): */
 
+typedef struct udpLog_param_tag
+{
+    const char *ipAddr_cchp;
+    uint32_t conPort_u32;
+}udpLog_param_t;
+
 /****************************************************************************************/
 /* Global function definitions: */
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Initializes the initialization structure of the udplog module
+ * @author    S. Wink
+ * @date      24. Apr. 2020
+ * @param     param_stp     parameter initialization structure
+ * @return    ESP_OK in case of success, else error code
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t udpLog_InitializeParameter_st(udpLog_param_t *param_stp);
+
+/**---------------------------------------------------------------------------------------
+ * @brief     Initialization of UDP logging
+ * @author    S. Wink
+ * @date      24. Mar. 2019
+ * @param     param_stp     parameter initialization structure
+ * @return    ESP_OK in case of success, else error code
+*//*-----------------------------------------------------------------------------------*/
+extern esp_err_t udpLog_Initialize_st(udpLog_param_t *param_stp);
 
 /**---------------------------------------------------------------------------------------
  * @brief     Function to switch back to original logging
  * @author    S. Wink
  * @date      24. Mar. 2019
  * @param     list_st       variable argument list
- * @return    n/a
-*//*-----------------------------------------------------------------------------------*/
-extern void udpLog_Free_vd(void);
-
-/**---------------------------------------------------------------------------------------
- * @brief     Initialization of UDP logging
- * @author    S. Wink
- * @date      24. Mar. 2019
- * @param     ipAddr_cchp       IP address of logging server
- * @param     port              port number of logging server
  * @return    ESP_OK in case of success, else error code
 *//*-----------------------------------------------------------------------------------*/
-extern esp_err_t udpLog_Init_st(const char *ipAddr_cchp, unsigned long port);
+extern esp_err_t udpLog_Free_st(void);
 
 /****************************************************************************************/
 /* Global data definitions: */
