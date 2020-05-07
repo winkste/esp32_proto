@@ -138,7 +138,7 @@ esp_err_t controlTask_StartSystem_td(void)
     };
     devmgr_param_t devMgrParam_st;
 
-    CHECK_EXE(logcfg_Configure_st(logcfg_WIFI));
+    CHECK_EXE(logcfg_Configure_st(logcfg_DEVICES));
 
     InitializeParameterHandling_vd();
 
